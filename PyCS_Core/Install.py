@@ -22,7 +22,6 @@ _dbg_string = "%s:%s:"%(_location,_filename)
 fdbg_string = _dbg_string + " ["+Fore.LIGHTGREEN_EX+Style.BRIGHT+"INSTALL WIZARD"+Style.RESET_ALL+"]: "
 # HARD CODE: the relative location of the install config file from which to generate the correct installation.
 __install_config_file_path=os.path.join(str(pt.Path(os.path.realpath(__file__)).parents[0]).replace(".py",""),"installConfigs")
-__configuration_destination_path = os.path.join(str(pt.Path(os.path.realpath(__file__)).parents[1]),"bin","configs")
 
 ### Generating the correct file system upon installation ###
 install_files = {"files":{
@@ -30,7 +29,7 @@ install_files = {"files":{
         "files":{
             "configs":{
                 "files":None,
-                "setting_name":"figures_directory"
+                "setting_name":None
             },
             "Logging":{
                 "files":None,
@@ -137,38 +136,38 @@ if __name__ == '__main__':
     print("#             PyCS Installation Wizard             #")
     print("#            Written By: Eliza Diggins             #")
     print("#--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#")
-#-----------------------------------------------#
-#      Grabbing the necessary system data       #
-#-----------------------------------------------#
-installation_config = toml.load(os.path.join(__install_config_file_path,"config.ini"))
+    #-----------------------------------------------#
+    #      Grabbing the necessary system data       #
+    #-----------------------------------------------#
+    installation_config = toml.load(os.path.join(__install_config_file_path,"CONFIG.ini"))
 
-print("%sFound the installation configuration. Installing PyCS version %s."%(fdbg_string,Fore.CYAN+Style.BRIGHT+installation_config["system"]["version"]+Style.RESET_ALL))
-#--------------------------------------------------------#
-#      Getting the preferred installation location       #
-#--------------------------------------------------------#
-installation_directory = file_select()
-print("%sInstalling PyCS to directory %s."%(fdbg_string,installation_directory))
-make_files(installation_directory)
-print("%sGenerating the correct configuration files."%(fdbg_string))
+    print("%sFound the installation configuration. Installing PyCS version %s."%(fdbg_string,Fore.CYAN+Style.BRIGHT+installation_config["system"]["version"]+Style.RESET_ALL))
+    #--------------------------------------------------------#
+    #      Getting the preferred installation location       #
+    #--------------------------------------------------------#
+    installation_directory = file_select()
+    print("%sInstalling PyCS to directory %s."%(fdbg_string,installation_directory))
+    make_files(installation_directory)
+    print("%sGenerating the correct configuration files."%(fdbg_string))
 
-#--------------------------------------------------------#
-#              Creating the main CONFIG                  #
-#--------------------------------------------------------#
-with open(os.path.join(installation_config["system"]["directories"]["bin_directory"],"configs","CONFIG.ini"),"w") as file:
-    toml.dump(installation_config,file)
+    #--------------------------------------------------------#
+    #              Creating the main CONFIG                  #
+    #--------------------------------------------------------#
+    with open(os.path.join(installation_config["system"]["directories"]["bin_directory"],"configs","CONFIG.ini"),"w") as file:
+        toml.dump(installation_config,file)
 
-#--------------------------------------------------------#
-#            Copying other CONFIG files                  #
-#--------------------------------------------------------#
-for file in os.listdir(__install_config_file_path):
-    if file != "CONFIG.ini" and file != "config.ini":
-        # We actually do want to make this one.
-        print("%sGenerating config file %s."%(fdbg_string,file))
-        shutil.copy(os.path.join(__install_config_file_path,file),os.path.join(installation_config["system"]["directories"]["bin_directory"],"configs",file))
+    #--------------------------------------------------------#
+    #            Copying other CONFIG files                  #
+    #--------------------------------------------------------#
+    for file in os.listdir(__install_config_file_path):
+        if file != "CONFIG.ini" and file != "config.ini":
+            # We actually do want to make this one.
+            print("%sGenerating config file %s."%(fdbg_string,file))
+            shutil.copy(os.path.join(__install_config_file_path,file),os.path.join(installation_config["system"]["directories"]["bin_directory"],"configs",file))
 
-#--------------------------------------------------------#
-#            Creating Install Ticket                     #
-#--------------------------------------------------------#
-with open(os.path.join(str(pt.Path(os.path.realpath(__file__)).parents[0]).replace(".py",""),"tkt","ticket.INSTALL_TICKET"),"w+") as file:
-    file.write(installation_directory)
+    #--------------------------------------------------------#
+    #            Creating Install Ticket                     #
+    #--------------------------------------------------------#
+    with open(os.path.join(str(pt.Path(os.path.realpath(__file__)).parents[0]).replace(".py",""),"tkt","ticket.INSTALL_TICKET"),"w+") as file:
+        file.write(installation_directory)
 
