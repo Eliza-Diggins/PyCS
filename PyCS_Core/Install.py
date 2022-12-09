@@ -66,7 +66,11 @@ install_files = {"files":{
     "RAMSES_simulations":{
         "files":None,
         "setting_name":"RAMSES_simulations_directory"
-    }
+    },
+    "RAM_configs":{
+        "files":None,
+        "setting_name":"RAM_configs_directory"
+                   }
 }
 }
 #--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
