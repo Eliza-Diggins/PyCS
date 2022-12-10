@@ -172,6 +172,8 @@ if __name__ == '__main__':
     #--------------------------------------------------------#
     #            Creating Install Ticket                     #
     #--------------------------------------------------------#
+    if not os.path.exists(os.path.join(str(pt.Path(os.path.realpath(__file__)).parents[0]).replace(".py",""),"tkt")):
+        pt.Path.mkdir(os.path.join(str(pt.Path(os.path.realpath(__file__)).parents[0]).replace(".py",""),"tkt"),parents=True)
     with open(os.path.join(str(pt.Path(os.path.realpath(__file__)).parents[0]).replace(".py",""),"tkt","ticket.INSTALL_TICKET"),"w+") as file:
         file.write(installation_directory)
 
