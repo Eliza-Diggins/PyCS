@@ -9,6 +9,7 @@ import pathlib as pt
 
 # adding the system path to allow us to import the important modules
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
+import argparse
 from PyCS_Core.Configuration import read_config, _configuration_path
 from PyCS_Core.Logging import set_log, log_print, make_error
 from PyCS_System.text_utils import file_select,print_title
@@ -47,8 +48,15 @@ mpirun -np $SLURM_NTASKS %s %s
 # ------------------------------------------------------ MAIN -----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
+    ### Starting the argparser ###
+    parser = argparse.ArgumentParser() # setting up the command line argument parser
+    parser.add_argument("-o","--output_type",type=str,default="FILE",help="The type of output to use for logging.")
+    parser.add_argument("-l","--logging_level",type=int,default=10,help="The level of logging to use.")
+
+    args = parser.parse_args()
+
     ### Setting up logging ###
-    set_log(_filename,output_type="STDOUT")
+    set_log(_filename,output_type=args.output_type,level=args.logging_level)
     log_print("Running run_RAMSES.py.",_dbg_string,"debug")
     time.sleep(0.1)
     ### Setting up the run ###

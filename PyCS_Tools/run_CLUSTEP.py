@@ -1,6 +1,7 @@
 """
 
-Quick Script for running an existing slurm script
+        Run_Clustep script
+        Eliza Diggins
 
 """
 import os
@@ -9,11 +10,12 @@ import pathlib as pt
 
 # adding the system path to allow us to import the important modules
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
+import argparse
 from PyCS_Core.Configuration import read_config, _configuration_path
 from PyCS_Core.Logging import set_log, log_print, make_error
 from PyCS_System.text_utils import file_select,print_title
+from PyCS_System.SpecConfigs import read_clustep_config, read_batch_config, write_nml,write_slurm_script
 import pathlib as pt
-import argparse
 import toml
 from datetime import datetime
 from PyCS_System.text_utils import get_options
@@ -25,12 +27,26 @@ _location = "PyCS_Tools"
 _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
+# --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+# --------------------------------------------------- Static Vars -------------------------------------------------------#
+# --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+command_string = """
+#- Module Setup -#
+ml purge
+ml gcc/8.5.0
+ml openmpi/4.1.3
 
+#- Environment Management -#
+setenv WORKDIR %s
+cd $WORKDIR
+
+#- Main Command -#
+mpirun -np $SLURM_NTASKS %s %s
+"""
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ MAIN -----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
-    ### Starting the argparser ###
     parser = argparse.ArgumentParser() # setting up the command line argument parser
     parser.add_argument("-o","--output_type",type=str,default="FILE",help="The type of output to use for logging.")
     parser.add_argument("-l","--logging_level",type=int,default=10,help="The level of logging to use.")
@@ -39,15 +55,8 @@ if __name__ == '__main__':
 
     ### Setting up logging ###
     set_log(_filename,output_type=args.output_type,level=args.logging_level)
-    log_print("Running run_SLURM.py",_dbg_string,"debug")
-    time.sleep(0.1)
-    print_title("run_SLURM 1.0","Eliza Diggins")
-    # Selecting a valid slurm file #
-    selected_slurm_file = file_select(os.path.join(CONFIG["system"]["directories"]["SLURM_directory"],"scripts"),
-                                      lambda file: ".slurm" in file,
-                                      search_for_description=True)
 
-    full_path = os.path.join(os.path.join(CONFIG["system"]["directories"]["SLURM_directory"],"scripts",selected_slurm_file))
-    os.system("sbatch %s"%full_path)
-    log_print("Sent %s to the scheduler."%full_path,_dbg_string,"debug")
-    os.system("squeue -u $USER")
+    ### Running main script ###
+    # - grabbing the configuration data -#
+    clustep_config_default = read_clustep_config()
+    clustep_config = get_options(clustep_config_default,"Clustep Initialization Settings")

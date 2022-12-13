@@ -95,6 +95,30 @@ def read_batch_config(configuration_path=os.path.join(CONFIG["system"]["director
     else:
         return batch_CONFIG
 
+def read_clustep_config(configuration_path=os.path.join(CONFIG["system"]["directories"]["bin_directory"], "configs",
+                                                      "CLUSTEP_config.ini")) -> dict:
+    """
+    Reads the specified CLUSTEP configuration file.
+    :param configuration_path: the path in which to look for the given file.
+    :return: Dictonary containing the settings
+    """
+    # intro debugging #
+    fdbg_string = _dbg_string + "read_clustep_config: "
+    log_print("Reading batch configuration file at %s." % configuration_path, fdbg_string, "debug")
+
+    # grabbing the data #
+    try:
+        clustep_CONFIG = toml.load(configuration_path)
+        log_print("Read %s." % configuration_path, fdbg_string, "debug")
+    except Exception:  # TODO: This could potentially be refined for more pythonic expression
+        make_error(SyntaxError, fdbg_string, "Failed to read TOML file %s." % configuration_path)
+
+    #
+    # TODO: Further alterations can be made here as necessary.
+    #
+
+    else:
+        return clustep_CONFIG
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ---------------------------------------------------- Functions --------------------------------------------------------#
