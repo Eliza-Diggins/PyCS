@@ -108,12 +108,12 @@ def log_print(text, loc, level):
     ### Creating the alert ###
     if __output_log_type == "FILE":
         try:
-            log.log(lvls[level], loc + text)
+            log.log(lvls[level], loc + " "+text)
         except Exception:
             pass
     elif __output_log_type == "STDOUT":
         try:
-            log.log(lvls[level], _loc_color + loc + _log_colors[level] + text)
+            log.log(lvls[level], _loc_color + loc + " "+ _log_colors[level] + text)
         except Exception:
             pass
 
