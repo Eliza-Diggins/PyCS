@@ -15,7 +15,7 @@ from copy import deepcopy
 import os
 from functools import reduce  # forward compatibility for Python 3
 import operator
-
+import numpy as np
 
 #--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 #------------------------------------------------------ Setup ----------------------------------------------------------#
@@ -179,6 +179,101 @@ def get_options(option_dict,title):
 
         os.system('cls' if os.name == 'nt' else 'clear')
     return settings
+
+def file_select(directory:str,conditions=None,search_for_description=True):
+    """
+    Allows the user to select files from a specific list based on a given directory.
+
+    Conditions can be used to set up a discrimination system.
+    :param directory: The directory, should be a string
+    :param conditions: lambda function (file), returning true to include in list.
+    :return:
+    """
+    # debug strings #
+    fdbg_string = "%sfile_select:"%_dbg_string
+    cdbg_string = fdbg_string + " [" + Fore.LIGHTGREEN_EX + Style.BRIGHT + "FILE WIZARD" + Style.RESET_ALL + "]: "
+
+    # starting #
+    print(("#"*24)+" File Selection "+("#"*24))
+    print("#"+Fore.RED+"Directory"+Style.RESET_ALL+": "+directory)
+
+    ### Finding valid files ###
+    if conditions != None:
+        files = [file for file in os.listdir(directory) if conditions(file)]
+    else:
+        files = os.listdir(directory)
+    print("#"+Fore.RED+"Files"+Style.RESET_ALL+": "+str(len(files)))
+    print("#"*64)
+
+    ### Managing descriptions ###
+    descriptions = {}  # this will hold the descriptions
+    if search_for_description:
+
+        for file in files: # cycle through each of the files
+            if os.path.isfile(os.path.join(directory,file)):
+                with open(os.path.join(directory,file),"r+") as f:
+                    try:
+                        first_line = f.readline() # read the first line
+                        if "#DESC:" in first_line:
+                            # there is a description
+                            descriptions[file] = (first_line.replace("#DESC:","").replace("\n","") if first_line.replace("#DESC:","") != "None" else "No Description...")
+                        else:
+                            descriptions[file] = "No Description"
+                    except UnicodeError:
+                        descriptions[file] = "Non-descriptable file"
+            else:
+                descriptions[file] = "Directory"
+    else:
+        for file in files:
+            descriptions[file] = "No Description..."
+
+    ### print maths ###
+    max_length = np.amax([len(file) for file in files]) # grabbing the maximal length of the filename.
+    length_difference = {
+        file:(max_length+2)-len(file) for file in files
+    }
+
+    ### selecting ###
+    selection_check = False
+    while not selection_check:
+        # We have not selected our file yet.
+        for id,file in enumerate(files):
+            # We cycle through all of the files.
+            print("[%s] %s%s|%s"%(
+                Fore.RED+Style.BRIGHT+str(id+1)+Style.RESET_ALL,
+                Fore.BLUE+Style.BRIGHT+file+Style.RESET_ALL,
+                (" "*length_difference[file]),
+                Fore.WHITE+descriptions[file]+Style.RESET_ALL
+            ))
+        print("#" * 64)
+        tmp_input = input("%sPlease select a file: "%cdbg_string) # selecting a file
+
+        if not tmp_input.isdigit(): # the temp input is not actually a number:
+            input("%sFailed to recognize option %s. Input should be an integer. Press any key to try again..."%(cdbg_string,tmp_input))
+        else:
+            # This input was a digit we need to check it.
+            tmp_value = int(tmp_input)-1 #grabbing the correct index value.
+
+            if 0 <= tmp_value <= len(files)-1: # this is a valid selection
+                selected_file = files[tmp_value] # grab the selected file.
+                selection_check = True
+            else:
+                input("%sInput %s is too large. Maximum value is %s. Press any key to try again..." % (
+                cdbg_string, tmp_input,len(files)))
+
+        os.system('cls' if os.name == 'nt' else 'clear')
+
+        # Re-printing
+        if not selection_check:
+            print(("#" * 24) + " File Selection " + ("#" * 24))
+            print("#" + Fore.RED + "Directory" + Style.RESET_ALL + ": " + directory)
+            print("#" + Fore.RED + "Files" + Style.RESET_ALL + ": " + str(len(files)))
+            print("#" * 64)
+    print("%sSelected %s." % (cdbg_string, selected_file)) #--> This cannot actually be escaped.
+    return selected_file
+
+
+
         
 
 
@@ -187,8 +282,4 @@ def get_options(option_dict,title):
 #--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename,output_type="STDOUT")
-    print(get_options({"name":"Eliza",
-                 "options":{
-                     "option1":2,
-                     "option2":4
-                 }},"Title"))
+    file_select(r"C:\Users\13852\PycharmProjects\PyCS\SLURM_files\scripts")

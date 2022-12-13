@@ -198,7 +198,7 @@ def write_slurm_script(command_string: str,
 
     ### Writing the batch script ###
     with open(os.path.join(save_location,name),"w+") as file: # Opening the file
-        file.write("#DESC:%s\n"%description)
+        file.write("#DESC:%s\n"%str(description))
         file.write("$!/bin/csh\n\n")
 
         for option in batch_settings: # We cycle through the batch settings list
