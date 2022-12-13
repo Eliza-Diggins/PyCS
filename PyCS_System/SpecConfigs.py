@@ -100,7 +100,7 @@ def read_batch_config(configuration_path=os.path.join(CONFIG["system"]["director
 # ---------------------------------------------------- Functions --------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["directories"]["RAMSES_nml_directory"],
-              name=None) -> None:
+              name=None) ->str:
     """
     Write the RAMSES nml file corresponding to the input nml settings at the output location.
     :param nml_settings: The nml settings.
@@ -147,6 +147,7 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
                 file.write("/\n\n")
 
     log_print("Finished writing %s in %s." % (name, output_location), fdbg_string, "info")
+    return os.path.join(output_location,name)
 
 
 def write_slurm_script(command_string: str,
