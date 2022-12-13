@@ -67,6 +67,10 @@ install_files = {"files":{
         "files":None,
         "setting_name":"RAMSES_simulations_directory"
     },
+    "RAMSES_nml":{
+        "files":None,
+        "setting_name":"RAMSES_nml_directory"
+    },
     "RAM_configs":{
         "files":None,
         "setting_name":"RAM_configs_directory"

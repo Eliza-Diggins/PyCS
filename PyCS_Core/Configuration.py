@@ -15,7 +15,6 @@ with open(os.path.join(str(pt.Path(os.path.realpath(__file__)).parents[0]).repla
     ### Reading the CONFIG file from the installation ticket.
     _configuration_path = os.path.join(file.read(),"bin","configs","CONFIG.ini")
 
-print(_configuration_path)
 # Setting up the debug strings #
 _location = "PyCS_Core"
 _filename = pt.Path(__file__).name.replace(".py","")
@@ -50,7 +49,6 @@ def read_config(configuration_path:str)->dict:
 #--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     CONFIG=read_config(_configuration_path)
-    print(CONFIG)
 
 
 

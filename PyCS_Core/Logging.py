@@ -134,16 +134,16 @@ def set_log(script_name: str,
     """
     global __output_log_type
     ### Generating the correct file location ###
-    if not os.path.exists(os.path.join(CONFIG["system"]["directories"]["bin_directory"], script_name)):
+    if not os.path.exists(os.path.join(CONFIG["system"]["directories"]["bin_directory"],"Logging", script_name)):
         # This path doesn't yet exist and therefore needs to be generated.
-        pt.Path.mkdir(pt.Path(os.path.join(CONFIG["system"]["directories"]["bin_directory"], script_name)),
+        pt.Path.mkdir(pt.Path(os.path.join(CONFIG["system"]["directories"]["bin_directory"],"Logging", script_name)),
                       parents=True)  # make the directory
 
     ### Setting the logger ###
     if output_type == "FILE":  # we are outputting to a file
         __output_log_type = output_type
         handler_sh_file = logging.FileHandler(
-            filename=os.path.join(CONFIG["system"]["directories"]["bin_directory"], script_name,
+            filename=os.path.join(CONFIG["system"]["directories"]["bin_directory"],"Logging", script_name,
                                   "%s.log" % datetime.now().strftime('%m-%d-%Y_%H-%M-%S')))
         handler_sh_file.setFormatter(CustomFormatter())
         log.basicConfig(handlers=[handler_sh_file], level=level)
