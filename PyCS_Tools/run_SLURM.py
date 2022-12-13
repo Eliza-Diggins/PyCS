@@ -35,11 +35,11 @@ if __name__ == '__main__':
     time.sleep(0.1)
     print_title("run_SLURM 1.0","Eliza Diggins")
     # Selecting a valid slurm file #
-    selected_slurm_file = file_select(os.path.join(CONFIG["system"]["directories"]["SLURM_directory"],"Scripts"),
+    selected_slurm_file = file_select(os.path.join(CONFIG["system"]["directories"]["SLURM_directory"],"scripts"),
                                       lambda file: ".slurm" in file,
                                       search_for_description=True)
 
-    full_path = os.path.join(os.path.join(CONFIG["system"]["directories"]["SLURM_directory"],"Scripts",selected_slurm_file))
+    full_path = os.path.join(os.path.join(CONFIG["system"]["directories"]["SLURM_directory"],"scripts",selected_slurm_file))
     os.system("sbatch %s"%full_path)
     log_print("Sent %s to the scheduler."%full_path,_dbg_string,"debug")
     os.system("squeue -u $USER")
