@@ -44,10 +44,34 @@ def read_RAMSES_config(configuration_path=os.path.join(CONFIG["system"]["directo
     else:
         return RAMSES_CONFIG
 
+def read_batch_config(configuration_path=os.path.join(CONFIG["system"]["directories"]["bin_directory"],"configs","batch_config.ini"))->dict:
+    """
+    Reads the specified batch configuration file.
+    :param configuration_path: the path in which to look for the given file.
+    :return: Dictonary containing the settings
+    """
+    # intro debugging #
+    fdbg_string = _dbg_string+"read_batch_config: "
+    log_print("Reading batch configuration file at %s."%configuration_path,fdbg_string,"debug")
+
+    # grabbing the data #
+    try:
+        batch_CONFIG = toml.load(configuration_path)
+        log_print("Read %s."%configuration_path,fdbg_string,"debug")
+    except Exception: #TODO: This could potentially be refined for more pythonic expression
+        make_error(SyntaxError,fdbg_string,"Failed to read TOML file %s."%configuration_path)
+
+    #
+    # TODO: Further alterations can be made here as necessary.
+    #
+
+
+    else:
+        return batch_CONFIG
 #--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 #---------------------------------------------------- Functions --------------------------------------------------------#
 #--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-def write_nml(nml_settings:dict,output_location:str,name=None)->None:
+def write_nml(nml_settings:dict,output_location:str=CONFIG["system"]["directories"]["RAMSES_nml_directory"],name=None)->None:
     """
     Write the RAMSES nml file corresponding to the input nml settings at the output location.
     :param nml_settings: The nml settings.
@@ -59,10 +83,47 @@ def write_nml(nml_settings:dict,output_location:str,name=None)->None:
     fdbg_string = _dbg_string+"write_nml: "
     log_print("Writing nml file at %s with name %s."%(output_location,name),fdbg_string,"debug")
 
+    # managing naming convention #
+    if name == None: # no initial name was specified to the function
+        log_print("No name was given, attempting to create a name.",fdbg_string,"info")
+        # grab the names of the nml files that already exist
+        nml_names = [file for file in os.listdir(output_location) if ".nml" in file]
+        try:
+            name = nml_settings["DICE_PARAMS"]["ic_file"].split(".")[0][1:]+".nml"
+
+        except KeyError:
+            name = "RAMSES_nml.nml"
+
+        name_already_exists = name in nml_names
+        l=0
+        base_name = name
+        while name_already_exists: # we need to keep fixing up the name until we find something logically reasonable.
+            name = base_name.split(".")[0]+"_(%s)"%l+".nml"
+            name_already_exists = name in nml_names
+            l+= 1
+
+        log_print("Found name option: %s (in %s)"%(name,output_location),fdbg_string,"info")
+
+    ### Generating the nml file ###
+    with open(os.path.join(output_location,name),"w+") as file: # Creating the file.
+        # Writing the nml file #
+        for header in nml_settings: # Cycle through each of the nml headers
+            if header != "CORE": # we skip the "CORE" setting as its just for our usage.
+                file.write("&%s\n"%header) # Write the header
+
+                ### Writing the sub options ###
+                for option in nml_settings[header]:
+                    file.write("%s=%s\n"%(option,nml_settings[header][option]))
+
+                file.write("/\n\n")
+
+    log_print("Finished writing %s in %s."%(name,output_location),fdbg_string,"info")
+
 #--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 #------------------------------------------------------- Main ----------------------------------------------------------#
 #--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename,output_type="STDOUT")
     from PyCS_System.text_utils import get_options
-    get_options(read_RAMSES_config(),"RAMSES Settings")
+    data = read_batch_config()
+    write_nml(data)
