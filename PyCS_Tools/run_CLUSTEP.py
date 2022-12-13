@@ -17,6 +17,7 @@ from PyCS_System.text_utils import file_select,print_title
 from PyCS_System.SpecConfigs import read_clustep_config, read_batch_config, write_nml,write_slurm_script
 import pathlib as pt
 import toml
+import shutil
 from datetime import datetime
 from PyCS_System.text_utils import get_options
 import time
@@ -60,3 +61,13 @@ if __name__ == '__main__':
     # - grabbing the configuration data -#
     clustep_config_default = read_clustep_config()
     clustep_config = get_options(clustep_config_default,"Clustep Initialization Settings")
+
+    #- Writing the clustep config to the install location -#
+    params_dir = os.path.join(CONFIG["system"]["executables"]["CLUSTEP_install"],"params_cluster.ini")
+    if os.path.exists(params_dir):
+        # there is already a copy
+        log_print("Found a copy of params_cluster.ini in Clustep install. Removing and replacing.",_dbg_string,"info")
+        shutil.rmtree(params_dir)
+
+    with open(params_dir,"w+") as file: # Writing a new params file.
+        toml.dump(clustep_config,file)
