@@ -205,6 +205,11 @@ def file_select(directory:str,conditions=None,search_for_description=True):
     print("#"+Fore.RED+"Files"+Style.RESET_ALL+": "+str(len(files)))
     print("#"*64)
 
+    ### checking for 0 length ###
+    if not len(files):
+        print("%sFailed to find any files meeting these criteria. Exiting..."%fdbg_string)
+        exit()
+
     ### Managing descriptions ###
     descriptions = {}  # this will hold the descriptions
     if search_for_description:

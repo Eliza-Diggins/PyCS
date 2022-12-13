@@ -151,7 +151,7 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
 
 
 def write_slurm_script(command_string: str,
-                       save_location: str = os.path.join(CONFIG["system"]["directories"]["SLURM_directory"], "Scripts"),
+                       save_location: str = os.path.join(CONFIG["system"]["directories"]["SLURM_directory"], "scripts"),
                        name: str = None,
                        type: str = None,
                        description: str = None,
