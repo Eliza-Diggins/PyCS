@@ -239,7 +239,15 @@ def write_slurm_script(command_string: str,
 
 
 
-
+def write_clustep_ini(dict,filename):
+    """
+    Writes a clustep ini from the dict in the given filename.
+    """
+    with open(filename,"w+") as file:
+        for header in dict:
+            file.write("[%s]\n"%header)
+            for option in dict[header]:
+                file.write("%s=%s\n"%(option,str(dict[header][option])))
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------- Main ----------------------------------------------------------#

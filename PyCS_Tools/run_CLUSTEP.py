@@ -12,13 +12,10 @@ import pathlib as pt
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 import argparse
 from PyCS_Core.Configuration import read_config, _configuration_path
-from PyCS_Core.Logging import set_log, log_print, make_error
-from PyCS_System.text_utils import file_select,print_title
-from PyCS_System.SpecConfigs import read_clustep_config, read_batch_config, write_nml,write_slurm_script
+from PyCS_Core.Logging import set_log, log_print
+from PyCS_System.text_utils import print_title
+from PyCS_System.SpecConfigs import read_clustep_config,write_slurm_script,write_clustep_ini
 import pathlib as pt
-import toml
-import shutil
-from datetime import datetime
 from PyCS_System.text_utils import get_options
 import time
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -31,43 +28,91 @@ CONFIG = read_config(_configuration_path)
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --------------------------------------------------- Static Vars -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+# Setting up the command string to feed into the slurm generator.
 command_string = """
 #- Module Setup -#
 ml purge
-ml gcc/8.5.0
-ml openmpi/4.1.3
+module use $HOME/MyModules
+ml miniconda3/latest
 
 #- Environment Management -#
 setenv WORKDIR %s
 cd $WORKDIR
 
 #- Main Command -#
-mpirun -np $SLURM_NTASKS %s %s
+%s clustep.py -o '%s'
 """
+clustep_exec = CONFIG["system"]["executables"]["CLUSTEP_install"] # this is the location of the clustep.py exec.
+python_exec = CONFIG["system"]["executables"]["python_full"] # this is the command of the full python implementation.
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ MAIN -----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
+    ### ARGPARSING ###
     parser = argparse.ArgumentParser() # setting up the command line argument parser
     parser.add_argument("-o","--output_type",type=str,default="FILE",help="The type of output to use for logging.")
     parser.add_argument("-l","--logging_level",type=int,default=10,help="The level of logging to use.")
-
+    parser.add_argument("-nb","--no_batch",action="store_true",help="Use batch to run.")
     args = parser.parse_args()
 
     ### Setting up logging ###
     set_log(_filename,output_type=args.output_type,level=args.logging_level)
 
+
     ### Running main script ###
+
+
+    ### Working on grabbing clustep config data ###
     # - grabbing the configuration data -#
-    clustep_config_default = read_clustep_config()
-    clustep_config = get_options(clustep_config_default,"Clustep Initialization Settings")
+    clustep_config_default = read_clustep_config() # reading the config from file
+    clustep_config = get_options(clustep_config_default,"Clustep Initialization Settings") # grabbing settings
 
     #- Writing the clustep config to the install location -#
+    #- We need to write it specially because it cannot be written by TOML
     params_dir = os.path.join(CONFIG["system"]["executables"]["CLUSTEP_install"],"params_cluster.ini")
+
+    # managing the case when the file already exists
     if os.path.exists(params_dir):
         # there is already a copy
         log_print("Found a copy of params_cluster.ini in Clustep install. Removing and replacing.",_dbg_string,"info")
-        shutil.rmtree(params_dir)
+        os.remove(params_dir)
 
-    with open(params_dir,"w+") as file: # Writing a new params file.
-        toml.dump(clustep_config,file)
+    # writing the param.ini file
+    write_clustep_ini(clustep_config,params_dir)
+
+
+    time.sleep(0.1)
+
+    ### Selecting an output file name ###
+    out_name = input("%s[Input] Select a name for the .dat file. [return to auto-generate]:"%_dbg_string)
+    if  out_name == "":
+        clusters = [file for file in os.listdir(CONFIG["system"]["directories"]["initial_conditions_directory"]) if "Clu" in file]
+        n = len(clusters)+1
+        out_name = "Clu_%s.dat"%n
+
+
+    ### RUNNING THE PROGRAM ###
+    if args.no_batch:
+        ### We are not using the scheduler for this job ###
+        usr_dir = os.getcwd() # get a current dir to return to.
+        os.chdir(clustep_exec) # go to installation location
+
+        # running the command in the correct python version #
+        os.system("%s %s -o %s"%(python_exec,"clustep.py",
+                                     os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"],out_name)))
+        # returning to correct directory.
+        os.chdir(usr_dir)
+    else:
+        ### We are going to send things to SLURM ###
+        slurm_name = input("%s[Input] Select a name for the .slurm file. [return to auto-generate]:" % _dbg_string)
+        if slurm_name == "":
+            slurm_name = None
+
+        write_slurm_script(command_string%(clustep_exec,python_exec,
+                                           os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"],out_name)),
+                           name=slurm_name,
+                           type="CLUSTEP",
+                           description=input(
+                               "%s[Input]: Please provide a description for the SLURM file:" % _dbg_string),
+                           batch=True)
+
