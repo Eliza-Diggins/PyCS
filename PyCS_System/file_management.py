@@ -276,7 +276,7 @@ def mt_send_item_to_rclone(location_path, unfiled=CONFIG["files"]["send_to_unfil
 
     screen_lock.acquire()
     print(
-        "%s:upload_files:" % _dbg_string + " [" + Fore.LIGHTGREEN_EX + Style.BRIGHT + "FILE WIZARD" + Style.RESET_ALL + "]: " + "Uploading %s..." % location_path + "  [%s|%s]" % (
+        "%supload_files:" % _dbg_string + " [" + Fore.LIGHTGREEN_EX + Style.BRIGHT + "FILE WIZARD" + Style.RESET_ALL + "]: " + "Uploading %s..." % location_path + "  [%s|%s]" % (
             Fore.CYAN + Style.BRIGHT + "DONE" + Style.RESET_ALL,
             Fore.GREEN + Style.BRIGHT + "%s s" % t_f + Style.RESET_ALL
         ))
@@ -337,7 +337,7 @@ def mt_get_item_from_rclone(location_path, unfiled=CONFIG["files"]["send_to_unfi
 
     screen_lock.acquire()
     print(
-        "%s:download_files:" % _dbg_string + " [" + Fore.LIGHTGREEN_EX + Style.BRIGHT + "FILE WIZARD" + Style.RESET_ALL + "]: " + "Downloading %s..." % location_path + "  [%s|%s]" % (
+        "%sdownload_files:" % _dbg_string + " [" + Fore.LIGHTGREEN_EX + Style.BRIGHT + "FILE WIZARD" + Style.RESET_ALL + "]: " + "Downloading %s..." % location_path + "  [%s|%s]" % (
             Fore.CYAN + Style.BRIGHT + "DONE" + Style.RESET_ALL,
             Fore.GREEN + Style.BRIGHT + "%s s" % t_f + Style.RESET_ALL
         ))
@@ -347,7 +347,7 @@ def mt_get_item_from_rclone(location_path, unfiled=CONFIG["files"]["send_to_unfi
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Functions -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-def upload_files(threaded=False):
+def upload_files(threaded=CONFIG["system"]["multiprocessing"]["threaded"]):
     """
     User interfaced function to allow the user to upload files and folders onto box.
     Returns:None
@@ -418,7 +418,7 @@ def upload_files(threaded=False):
             ))
 
 
-def download_files(threaded=False):
+def download_files(threaded=CONFIG["system"]["multiprocessing"]["threaded"]):
     """
     User interfaced function to allow the user to download files and folder from box.
     Returns:None

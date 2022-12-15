@@ -8,7 +8,7 @@ import pathlib as pt
 import os
 
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
-from colorama import Fore, Style
+from colorama import Fore, Style, Back
 from PyCS_Core.Logging import set_log, log_print
 from PyCS_Core.Configuration import _configuration_path, read_config
 import pathlib as pt
@@ -17,6 +17,7 @@ import os
 from functools import reduce  # forward compatibility for Python 3
 import operator
 import numpy as np
+from sshkeyboard import listen_keyboard,stop_listening
 import subprocess
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -27,6 +28,9 @@ _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
 
+# for the option menu
+location = None
+ext_check = False
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Sub-Functions ------------------------------------------------------#
@@ -359,16 +363,16 @@ def file_directory_select(directory_dict: dict):
         if location == "MAIN":
             ### We are reading the directories directly from the input, we need all three pieces of info.
             directories = {key: {
-                "path":directory_dict[key],
-                "source":key
+                "path": directory_dict[key],
+                "source": key
             } for key in directory_dict if key not in selected_directories
             }
         else:
             # We determine source based on if the item path contains one of the directory dicts.
             directories = {
-                i:{
-                    "path":os.path.join(location, i),
-                    "source":[item for item in directory_dict if directory_dict[item] in location][0]
+                i: {
+                    "path": os.path.join(location, i),
+                    "source": [item for item in directory_dict if directory_dict[item] in location][0]
                 }
                 for i in os.listdir(location) if i not in selected_directories
             }
@@ -547,7 +551,7 @@ def rclone_file_directory_select():
 
     # grabbing classification paths #
     status_items = rclone_listdir(location)[0]
-    status_items = [i[:-1] for i in status_items] # removing trailers.
+    status_items = [i[:-1] for i in status_items]  # removing trailers.
     ### selecting ###
     selected_directories = {}  # these are the selected directories we will use later. dict for storing recur.
     selection_check = False
@@ -565,7 +569,8 @@ def rclone_file_directory_select():
 
         ### grabbing available files ###
         directories = {
-            name: {"path": os.path.join(location, name), "isfile": status, "source":[item for item in status_items if item in os.path.join(location,name)][0]}
+            name: {"path": os.path.join(location, name), "isfile": status,
+                   "source": [item for item in status_items if item in os.path.join(location, name)][0]}
             for name, status in zip(*rclone_listdir(location)) if name not in selected_directories
         }
         for id, directory in enumerate(directories):
@@ -720,9 +725,101 @@ def rclone_file_directory_select():
     return selected_directories
 
 
+def option_menu(options, desc=None, title=None):
+    """
+    Creates an options menu for a user to select from a set of options.
+    Parameters
+    ----------
+    options: The options to use
+    desc: The descriptions. Should be a dictionary
+    title: The title for the menu.
+
+    Returns: the selected option.
+    -------
+
+    """
+    ### SETUP ###
+    global location
+    global ext_check
+
+    # Printing #
+    if title:
+        print_title(title, "Select an option")
+    else:
+        print_title("Menu", "Select an option")
+    if desc == None:
+        desc = {option: "" for option in options}
+
+    ### CYCLE SETUP ###
+    selection_check = False
+    location = 0  # this first option
+
+    ### Defining on press items ###
+    def on_press(key):
+        global location
+        global ext_check
+        try:
+            if key == "enter":
+                # do something
+                stop_listening()
+                ext_check=options[location]
+            elif key == "down":
+                location = (location + 1 if location + 1 <= len(options)-1 else 0)
+                stop_listening()
+            elif key == "up":
+                location = (location - 1 if location - 1 >= 0 else len(options)-1)
+                stop_listening()
+                # do something else
+                return False  # Stop listener
+        except AttributeError as ex:
+            print(ex)
+
+
+    # Non-Repeat vars #
+    max_length = np.amax([len(op) for op in options])  # used for printing
+    excess = {option: (max_length + 2) - len(option) for option in options}
+    max_len_desc = np.amax([len(des) for des in desc.values()])
+    desc_excess = {option: (max_len_desc + 2) - len(desc[option]) for option in options}
+
+    while not selection_check:  # we haven't yet chosen an option to use
+        ### Printing ###
+        print("+"+("-"*(max_length+2))+"+-"+("-"*(max_len_desc+2))+"+")
+        for id, option in enumerate(options):
+            if id == location:
+                print("|" + Back.WHITE + Fore.BLACK + option + (" " * excess[option])+"| " + Style.DIM + desc[option] + (
+                            " " * desc_excess[option]) + Style.RESET_ALL + "|")
+            else:
+                print("|%s" % option + (" " * excess[option])+"| " + Style.DIM + desc[option] + (
+                            " " * desc_excess[option]) + Style.RESET_ALL + "|")
+        print("+" + ("-" * (max_length + 2)) + "+-" + ("-" * (max_len_desc + 2)) + "+")
+
+
+        ### Keyboard reading ###
+        listen_keyboard(on_press=on_press)
+
+
+        ### Clearing the screen ###
+        os.system('cls' if os.name == 'nt' else 'clear')
+
+        # Did we get an exit command?
+        if ext_check != False:
+            return ext_check
+
+        # re-print title
+        if title:
+            print_title(title, "Select an option")
+        else:
+            print_title("Menu", "Select an option")
+
+
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------- Main ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename, output_type="FILE")
-    print(rclone_file_directory_select())
+    print(option_menu(["option_1", "option_2"], title="Option Menu",desc={
+        "option_1":"Description of item 1.",
+        "option_2":"Description of item 2."
+    }))
+
