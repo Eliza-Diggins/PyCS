@@ -372,7 +372,6 @@ def file_directory_select(directory_dict: dict):
                 }
                 for i in os.listdir(location) if i not in selected_directories
             }
-        print(directories,selected_directories)
         for id, directory in enumerate(directories):
             # we cycle through all of the directories
             if os.path.isfile(directories[directory]["path"]):  # this is a file.

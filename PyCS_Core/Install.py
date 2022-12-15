@@ -74,7 +74,12 @@ install_files = {"files":{
     "RAM_configs":{
         "files":None,
         "setting_name":"RAM_configs_directory"
-                   }
+                   },
+
+    "un_filed": {
+        "files": None,
+        "setting_name": "unfiled_directory"
+    }
 }
 }
 #--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
