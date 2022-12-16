@@ -1,6 +1,7 @@
 """
         Configuration Management for PyCS Project
                 Written by: Eliza Diggins
+                -- Last Check: 12/16 --
 """
 import toml as tml
 import pathlib as pt

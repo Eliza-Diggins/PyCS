@@ -17,7 +17,7 @@ import os
 from functools import reduce  # forward compatibility for Python 3
 import operator
 import numpy as np
-from sshkeyboard import listen_keyboard,stop_listening
+from sshkeyboard import listen_keyboard, stop_listening
 import subprocess
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -28,9 +28,9 @@ _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
 
-# for the option menu
-location = None
-ext_check = False
+# For keyboard manipulation systems. Can store any variable as necessary temporarily. Used in many scripts.
+__GSV = {}
+
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Sub-Functions ------------------------------------------------------#
@@ -38,7 +38,26 @@ ext_check = False
 def getFromDict(dataDict, mapList):
     return reduce(operator.getitem, mapList, dataDict)
 
+def pullValues(dict):
+    """
+    Pulls values only for the dict instead of tuple based options
+    Parameters
+    ----------
+    dict
 
+    Returns
+    -------
+
+    """
+    ret_dict = {}
+    for key,value in dict.items():
+        if isinstance(value,list) or isinstance(value,tuple):
+            ret_dict[key] = value[0]
+        elif isinstance(value,dict):
+            ret_dict[key] = pullValues(dict[key])
+        else:
+            pass
+    return ret_dict
 def setInDict(dataDict, mapList, value):
     getFromDict(dataDict, mapList[:-1])[mapList[-1]] = value
 
@@ -59,6 +78,116 @@ def rclone_listdir(directory) -> tuple:
     type = [False if "/" in item else True for item in output]
 
     return (output, type)
+
+
+def set_simulation_information():
+    return pullValues(get_options({
+    "SimulationName":("None","None","The name of the simulation"),
+    "Description":("None","None","The description of the simulation"),
+    "NMLFile":("None","None","The name of the generated nml file")
+    }, "Simulation Options"))
+
+
+def print_option_dict(dict, location, header=None):
+    """
+    Prints the option dictionary.
+    Parameters
+    ----------
+    dict
+    header
+    calcs
+    color_dict
+
+    Returns
+    -------
+
+    """
+    print("#"*100)
+    if not header:
+        header = ["Value", "Default"]
+    for key, value in dict.items():
+        ### Printing the selected item ###
+        if location != key:
+            print("[ %s ]" % (Fore.RED + Style.BRIGHT + str(key) + Style.RESET_ALL), end="")
+        else:
+            print(Fore.BLACK + Back.WHITE + Style.DIM + "[ %s ]" % str(key) + Style.RESET_ALL, end="")
+
+        if isinstance(value, tuple):
+            for id, head in enumerate(header):  # print the header section...
+                if head == "Value":  # This is the value header...
+                    print(Fore.CYAN + Style.BRIGHT + " Value" + Style.RESET_ALL + "=%s |" % str(value[id]), end="")
+                else:
+                    print(" %s=%s |" % (head, Style.DIM + str(value[id]) + Style.RESET_ALL), end="")
+        else:
+            # Its a dict. pass
+            pass
+        print("")
+    print("#" * 100)
+
+
+# --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+# ----------------------------------------------------- Keyboard --------------------------------------------------------#
+# --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+def get_options_on_press(key):
+    """
+    Key press function for get options.
+    Parameters
+    ----------
+    key
+
+    Returns
+    -------
+
+    """
+    # grabbing globals
+    global __GSV
+
+    ## Managing key entering ##
+    try:
+        if key == "enter":
+            # do something
+            sub_dict_key = __GSV["selected_key"]
+            if isinstance(__GSV["sub_dict"][sub_dict_key], tuple):
+                pass
+            else:
+                __GSV["location"].append(__GSV["selected_key"])
+                __GSV["reset"] = True
+            stop_listening()
+        elif key == "e":
+            sub_dict_key = __GSV["selected_key"]
+            if isinstance(__GSV["sub_dict"][sub_dict_key], tuple):
+                __GSV["command"] = "edit"
+            else:
+                __GSV["location"].append(__GSV["selected_key"])
+
+            __GSV["reset"] = True
+            stop_listening()
+        elif key == "d":
+            sub_dict_key = __GSV["selected_key"]
+            if isinstance(__GSV["sub_dict"][sub_dict_key], tuple):
+                __GSV["command"] = "default"
+            else:
+                __GSV["location"].append(__GSV["selected_key"])
+
+            __GSV["reset"] = True
+            stop_listening()
+        elif key == "backspace":
+            if __GSV["location"] != []:
+                __GSV["location"]= __GSV["location"][:-1]
+            else:
+                __GSV["command"] = "exit"
+            __GSV["reset"] = True
+            stop_listening()
+        elif key == "down":
+            key_id = __GSV["keys"].index(__GSV["selected_key"])
+            __GSV["selected_key"] = (__GSV["keys"][key_id+1] if __GSV["selected_key"] != __GSV["keys"][-1] else __GSV["keys"][0])
+            stop_listening()
+        elif key == "up":
+            key_id = __GSV["keys"].index(__GSV["selected_key"])
+            __GSV["selected_key"] = (__GSV["keys"][key_id-1] if __GSV["selected_key"] != __GSV["keys"][0] else __GSV["keys"][-1])
+            stop_listening()
+    except AttributeError as ex:
+        print(ex)
 
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -104,8 +233,8 @@ def get_options(option_dict, title):
 
     Dictionary format:
 
-    A = {option1:default,
-        option2:default,
+    A = {option1:(default,desc),
+        option2:(default,desc),
         option3: {
             option1...
         }
@@ -113,10 +242,13 @@ def get_options(option_dict, title):
     :param title:
     :return:
     """
+    global __GSV # using the global variable for storing the important data.
     # Intro logging #
     fdbg_string = "%sget_options: " % _dbg_string
     cdbg_string = fdbg_string + " [" + Fore.LIGHTGREEN_EX + Style.BRIGHT + "SETTING WIZARD" + Style.RESET_ALL + "]: "
 
+    ### Pre-run data setup.
+    header = ["Value", "Default", "Description"]
     setting_commands = {
         "n": "Exit/Finish - Move down a level.",
         "e": "Edit - Move to.",
@@ -125,95 +257,71 @@ def get_options(option_dict, title):
     # startup copy and settting #
     settings = deepcopy(option_dict)  # create the copy we are going to use for the setting storage.
 
-    # starting the cycle #
-    CHECK_DONE = False
-    location = []  # this is where we will store the location
+    ########################################################################################################################
+    #                                       MAIN CYCLE
+    ########################################################################################################################
+    CHECK_DONE = False  # whole scope check for finish.
+    new_calcs = True  # This flag lets us skip calculations if they aren't necessary.
+    __GSV = {
+        "location": [],
+        "selected_key": None,
+        "sub_dict": {},
+        "keys":[],
+        "command":None,
+        "reset":True
+    }
     while not CHECK_DONE:  # we are still cycling'
+
         ## Setting the title ##
-        if location == []:  # we have no location
+        if __GSV["location"] == []:  # we have no location
             print_title(title, "Location: MAIN")
         else:
             loc_string = "Location: "
-            for loc in location:
+            for loc in __GSV["location"]:
                 loc_string += "--> %s " % loc
             print_title(title, loc_string)
 
-        ### Mangaging the print statements ###
-        print("#" * 64)
-        sub_dict = getFromDict(settings, location)
-        for index, option in enumerate(sub_dict):
-            if not isinstance(sub_dict[option], dict):  # This is a dictionary.
-                print("[%s] %s = %s   - default: %s" % (Fore.RED + str(index + 1) + Style.RESET_ALL,
-                                                        Fore.CYAN + Style.BRIGHT + str(option) + Style.RESET_ALL,
-                                                        Fore.GREEN + Style.BRIGHT + str(
-                                                            sub_dict[option]) + Style.RESET_ALL,
-                                                        Style.DIM + Fore.WHITE + str(getFromDict(option_dict, location)[
-                                                                                         option]) + Style.RESET_ALL))
-            else:
-                print("[%s] %s" % (Fore.RED + str(index + 1) + Style.RESET_ALL,
-                                   Fore.BLUE + Style.BRIGHT + option + Style.RESET_ALL))
+        #
+        #       PRINTING ------------------------
+        #
+        # Grabbing the necessary information #
+        if __GSV["reset"]:
+            __GSV["sub_dict"] = getFromDict(settings, __GSV["location"])
+            __GSV["keys"] = list(__GSV["sub_dict"].keys())
+            __GSV["selected_key"] = list(__GSV["sub_dict"].keys())[0]
+            __GSV["reset"] = False
 
-        print("\n" + "#" * 64)
 
-        ### Grabbing actual Setting options ###
-        print(Fore.RED + "Commands:" + Style.RESET_ALL)
-        for option in setting_commands:
-            print("%s: %s" % (Fore.RED + option + Style.RESET_ALL, setting_commands[option]))
-        print("#" * 64)
-        ### Setting Selection ###
-        inp = input("%sPlease enter a command:" % cdbg_string)
+        print_option_dict(__GSV["sub_dict"], __GSV["selected_key"], header=header)
 
-        # parsing command #
-        if inp in ["e", "E", "d", "D"]:  # we need to select a option
-            check = False
-            opinp = input(
-                "%sWhich item would you like to select? [1:%s]: " % (cdbg_string, len(list(sub_dict.keys()))))
-            while check == False:  # We now need to select an item to actually edit.
-                if not opinp.isdigit() and opinp not in ["n", "N"]:  # the input wasn't a digit or "n"
-                    failure_reason_string = "Invalid Selection"
-                elif opinp in ["n", "N"]:
-                    check = True
+        #
+        #       NAVIGATION ------------------------
+        #
+        listen_keyboard(on_press=get_options_on_press)  ### Waiting for the keyboard to select an entry.
+
+        if __GSV["command"]: # we have a command to execute
+            if __GSV["command"] == "exit":
+                ### We are exiting the program
+                CHECK_DONE = True
+                return settings
+            elif __GSV["command"] == "edit":
+                ### We are editing the selection.
+                inp = input("%sPlease enter a new value for %s. ['n' to return]:" % (cdbg_string,__GSV["selected_key"]))
+                if inp != "n":
+                    old_tuple = list(__GSV["sub_dict"][__GSV["selected_key"]])
+                    old_tuple[0] = inp
+                    setInDict(settings,__GSV["location"]+[__GSV["selected_key"]],tuple(old_tuple))
+                    __GSV["command"] = None
                 else:
-                    # This is a digit and we now need to check if its reasonable.
-                    if 1 <= int(opinp) <= len(list(sub_dict.keys())):
-                        # This is a good selection.
-                        check = True
-                        selected_index = int(opinp) - 1
-                    else:
-                        failure_reason_string = "No item %s" % int(opinp)
-
-                if not check:
-                    opinp = input("%s%s! Use 'n' to go back. Which item would you like to select? [1:%s]: " % (
-                        cdbg_string, failure_reason_string, len(list(sub_dict.keys()))))
-
-            ### Executing the selected command ###
-            if inp in ["e", "E"]:
-                # We are editing / moving #
-                selected_option = list(sub_dict.keys())[selected_index]  # we grab the correct item
-
-                if isinstance(sub_dict[selected_option], dict):  # we are moving into another dict.
-                    location.append(selected_option)
-                else:
-                    # We are actually going to be editing the value
-                    edited_value_str = input(
-                        "%sEnter a new value for %s: ('n' to go back) " % (cdbg_string, selected_option))
-                    if edited_value_str not in ["n", "N"]:
-                        setInDict(settings, location + [selected_option], edited_value_str)
-                    else:
-                        pass
-            elif inp in ["d", "D"]:
-                # We are returning an item to the default.
-                selected_option = list(sub_dict.keys())[selected_index]  # we grab the correct item
-                setInDict(settings, location + [selected_option],
-                          getFromDict(option_dict, location + [selected_option]))
-            else:  # We are returning out of this option
-                pass
-        elif inp in ["n", "N"]:
-            # We need to return #
-            if len(location):  # we need to back up a level.
-                location = location[:-1]
+                    __GSV["command"] = None
+            elif __GSV["command"] == "default":
+                ### We are editing the selection.
+                old_tuple = list(__GSV["sub_dict"][__GSV["selected_key"]])
+                old_tuple[0] = old_tuple[1]
+                setInDict(settings,__GSV["location"]+[__GSV["selected_key"]],tuple(old_tuple))
+                __GSV["command"] = None
             else:
-                CHECK_DONE = True  # We are exiting the whole program
+                __GSV["command"] = None
 
         os.system('cls' if os.name == 'nt' else 'clear')
     return settings
@@ -739,8 +847,7 @@ def option_menu(options, desc=None, title=None):
 
     """
     ### SETUP ###
-    global location
-    global ext_check
+    global __GSV  # Grabbing the global source variable.
 
     # Printing #
     if title:
@@ -752,28 +859,27 @@ def option_menu(options, desc=None, title=None):
 
     ### CYCLE SETUP ###
     selection_check = False
-    location = 0  # this first option
+    __GSV["location"] = 0 # This will store our location in the menu
+    __GSV["temp_store"] = False # This will store our choice.
 
     ### Defining on press items ###
     def on_press(key):
-        global location
-        global ext_check
+        global __GSV # Grabbing the global source variable.
         try:
             if key == "enter":
                 # do something
                 stop_listening()
-                ext_check=options[location]
+                __GSV["temp_store"] = options[__GSV["location"]]
             elif key == "down":
-                location = (location + 1 if location + 1 <= len(options)-1 else 0)
+                __GSV["location"] = (__GSV["location"]+ 1 if __GSV["location"]+ 1 <= len(options) - 1 else 0)
                 stop_listening()
             elif key == "up":
-                location = (location - 1 if location - 1 >= 0 else len(options)-1)
+                __GSV["location"] = (__GSV["location"] - 1 if __GSV["location"] - 1 >= 0 else len(options) - 1)
                 stop_listening()
                 # do something else
                 return False  # Stop listener
         except AttributeError as ex:
             print(ex)
-
 
     # Non-Repeat vars #
     max_length = np.amax([len(op) for op in options])  # used for printing
@@ -783,27 +889,26 @@ def option_menu(options, desc=None, title=None):
 
     while not selection_check:  # we haven't yet chosen an option to use
         ### Printing ###
-        print("+"+("-"*(max_length+2))+"+-"+("-"*(max_len_desc+2))+"+")
-        for id, option in enumerate(options):
-            if id == location:
-                print("|" + Back.WHITE + Fore.BLACK + option + (" " * excess[option])+"| " + Style.DIM + desc[option] + (
-                            " " * desc_excess[option]) + Style.RESET_ALL + "|")
-            else:
-                print("|%s" % option + (" " * excess[option])+"| " + Style.DIM + desc[option] + (
-                            " " * desc_excess[option]) + Style.RESET_ALL + "|")
         print("+" + ("-" * (max_length + 2)) + "+-" + ("-" * (max_len_desc + 2)) + "+")
-
+        for id, option in enumerate(options):
+            if id == __GSV["location"]:
+                print("|" + Back.WHITE + Fore.BLACK + option + (" " * excess[option]) + "| " + Style.DIM + desc[
+                    option] + (
+                              " " * desc_excess[option]) + Style.RESET_ALL + "|")
+            else:
+                print("|%s" % option + (" " * excess[option]) + "| " + Style.DIM + desc[option] + (
+                        " " * desc_excess[option]) + Style.RESET_ALL + "|")
+        print("+" + ("-" * (max_length + 2)) + "+-" + ("-" * (max_len_desc + 2)) + "+")
 
         ### Keyboard reading ###
         listen_keyboard(on_press=on_press)
-
 
         ### Clearing the screen ###
         os.system('cls' if os.name == 'nt' else 'clear')
 
         # Did we get an exit command?
-        if ext_check != False:
-            return ext_check
+        if __GSV["temp_store"] != False:
+            return __GSV["temp_store"]
 
         # re-print title
         if title:
@@ -812,14 +917,12 @@ def option_menu(options, desc=None, title=None):
             print_title("Menu", "Select an option")
 
 
-
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------- Main ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename, output_type="FILE")
-    print(option_menu(["option_1", "option_2"], title="Option Menu",desc={
-        "option_1":"Description of item 1.",
-        "option_2":"Description of item 2."
-    }))
-
+    get_options({"Option 1": {"Onions": (3, 1, "Green Veggie"),
+                              "Bananas": (4, 5, "Yellow Fun"),
+                              "Watermelons": (6, 5, "Greenies")},
+                 "Option 2": (16, 17, "Boring")}, "Title")

@@ -2,6 +2,7 @@
 
                 PyCS Installation Software for use on CHPC
                     Written by: Eliza Diggins
+                    -- Last Check: 12/16 --
 """
 import os
 import sys
@@ -34,6 +35,10 @@ install_files = {"files":{
             "Logging":{
                 "files":None,
                 "setting_name":None
+            },
+            "Simulation_Logs": {
+                "files": None,
+                "setting_name": None
             }
         },
         "setting_name":"bin_directory"

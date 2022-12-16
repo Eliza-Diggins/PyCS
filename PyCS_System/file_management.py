@@ -1,7 +1,7 @@
 """
 
     Tools for remote file management using RClone or single transfer.
-
+-- Last Check: 12/16 --
 """
 import os
 import pathlib as pt
@@ -19,7 +19,8 @@ from colorama import Fore, Style
 import numpy as np
 import threading as t
 
-screen_lock = t.Semaphore(value=1)
+# generating screen locking #
+screen_lock = t.Semaphore(value=1) # locks off multi-threaded screen.
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#

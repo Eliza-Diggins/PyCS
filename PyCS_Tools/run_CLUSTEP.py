@@ -13,9 +13,10 @@ sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 import argparse
 from PyCS_Core.Configuration import read_config, _configuration_path
 from PyCS_Core.Logging import set_log, log_print
-from PyCS_System.text_utils import print_title
+from PyCS_System.text_utils import print_title,set_simulation_information
 from PyCS_System.SpecConfigs import read_clustep_config,write_slurm_script,write_clustep_ini
 import pathlib as pt
+from datetime import datetime
 from PyCS_System.text_utils import get_options
 import time
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -48,22 +49,21 @@ python_exec = CONFIG["system"]["executables"]["python_full"] # this is the comma
 # ------------------------------------------------------ MAIN -----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
-    ### ARGPARSING ###
+    #Argument Parsing
+########################################################################################################################
     parser = argparse.ArgumentParser() # setting up the command line argument parser
     parser.add_argument("-o","--output_type",type=str,default="FILE",help="The type of output to use for logging.")
     parser.add_argument("-l","--logging_level",type=int,default=10,help="The level of logging to use.")
     parser.add_argument("-nb","--no_batch",action="store_true",help="Use batch to run.")
     args = parser.parse_args()
 
-    ### Setting up logging ###
+    #Setup
+########################################################################################################################
     set_log(_filename,output_type=args.output_type,level=args.logging_level)
 
 
-    ### Running main script ###
-
-
-    ### Working on grabbing clustep config data ###
-    # - grabbing the configuration data -#
+    #Grabbing CLUSTEP data
+########################################################################################################################
     clustep_config_default = read_clustep_config() # reading the config from file
     clustep_config = get_options(clustep_config_default,"Clustep Initialization Settings") # grabbing settings
 
@@ -83,13 +83,14 @@ if __name__ == '__main__':
 
     time.sleep(0.1)
 
-    ### Selecting an output file name ###
-    out_name = input("%s[Input] Select a name for the .dat file. [return to auto-generate]:"%_dbg_string)
+    #Grabbing basic simulation info
+    #We need an output name, a slurm script name
+########################################################################################################################
+    out_name = input("%sPlease enter a filename for the output. [""] to auto generate. "%_dbg_string)
     if  out_name == "":
         clusters = [file for file in os.listdir(CONFIG["system"]["directories"]["initial_conditions_directory"]) if "Clu" in file]
         n = len(clusters)+1
         out_name = "Clu_%s.dat"%n
-
 
     ### RUNNING THE PROGRAM ###
     if args.no_batch:
@@ -104,15 +105,12 @@ if __name__ == '__main__':
         os.chdir(usr_dir)
     else:
         ### We are going to send things to SLURM ###
-        slurm_name = input("%s[Input] Select a name for the .slurm file. [return to auto-generate]:" % _dbg_string)
-        if slurm_name == "":
-            slurm_name = None
+        slurm_name = "SLURM_CLUSTEP_%s_%s.slurm"%(out_name.replace(".dat",""),datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))
 
         write_slurm_script(command_string%(clustep_exec,python_exec,
                                            os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"],out_name)),
                            name=slurm_name,
                            type="CLUSTEP",
-                           description=input(
-                               "%s[Input]: Please provide a description for the SLURM file:" % _dbg_string),
+                           description="%s Generation."%out_name,
                            batch=True)
 

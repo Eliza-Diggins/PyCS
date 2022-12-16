@@ -4,7 +4,11 @@
                 Written by: Eliza Diggins
 
 """
+import sys
+import pathlib as pt
 import os
+
+sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
 from PyCS_Core.Logging import set_log, log_print, make_error
 import pathlib as pt
@@ -22,7 +26,7 @@ CONFIG = read_config(_configuration_path)
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Fixed Variables ----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-sbatch_commands={
+sbatch_commands={ # These are the batch commands that we need to be able to add to .SLURM files.
     "BATCH_TIME":"#SBATCH --time=",
     "BATCH_NODES":"#SBATCH --nodes=",
     "BATCH_STD_OUT_FRMT":"#SBATCH -o ",
@@ -34,6 +38,15 @@ sbatch_commands={
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Sub-Functions ------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+def tuplify_dict(dict):
+    ret_dict = {}
+    for key,value in dict.items():
+        if isinstance(value,list):
+            ret_dict[key]=tuple(value)
+        else:
+            ret_dict[key]=tuplify_dict(dict[key])
+
+    return ret_dict
 def find_next_available_number(list,name_format):
     check = False
     l = 1
@@ -62,12 +75,8 @@ def read_RAMSES_config(configuration_path=os.path.join(CONFIG["system"]["directo
     except Exception:  # TODO: This could potentially be refined for more pythonic expression
         make_error(SyntaxError, fdbg_string, "Failed to read TOML file %s." % configuration_path)
 
-    #
-    # TODO: Further alterations can be made here as necessary.
-    #
 
-    else:
-        return RAMSES_CONFIG
+    return tuplify_dict(RAMSES_CONFIG)
 
 
 def read_batch_config(configuration_path=os.path.join(CONFIG["system"]["directories"]["bin_directory"], "configs",
@@ -88,12 +97,8 @@ def read_batch_config(configuration_path=os.path.join(CONFIG["system"]["director
     except Exception:  # TODO: This could potentially be refined for more pythonic expression
         make_error(SyntaxError, fdbg_string, "Failed to read TOML file %s." % configuration_path)
 
-    #
-    # TODO: Further alterations can be made here as necessary.
-    #
-
-    else:
-        return batch_CONFIG
+    ### Reformatting ###
+    return tuplify_dict(batch_CONFIG)
 
 def read_clustep_config(configuration_path=os.path.join(CONFIG["system"]["directories"]["bin_directory"], "configs",
                                                       "CLUSTEP_config.ini")) -> dict:
@@ -113,12 +118,7 @@ def read_clustep_config(configuration_path=os.path.join(CONFIG["system"]["direct
     except Exception:  # TODO: This could potentially be refined for more pythonic expression
         make_error(SyntaxError, fdbg_string, "Failed to read TOML file %s." % configuration_path)
 
-    #
-    # TODO: Further alterations can be made here as necessary.
-    #
-
-    else:
-        return clustep_CONFIG
+    return tuplify_dict(clustep_CONFIG)
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ---------------------------------------------------- Functions --------------------------------------------------------#
@@ -142,7 +142,7 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
         # grab the names of the nml files that already exist
         nml_names = [file for file in os.listdir(output_location) if ".nml" in file]
         try:
-            name = nml_settings["DICE_PARAMS"]["ic_file"].split(".")[0][1:] + ".nml"
+            name = nml_settings["DICE_PARAMS"]["ic_file"][0].split(".")[0][1:] + ".nml"
 
         except KeyError:
             name = "RAMSES_nml.nml"
@@ -166,7 +166,7 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
 
                 ### Writing the sub options ###
                 for option in nml_settings[header]:
-                    file.write("%s=%s\n" % (option, nml_settings[header][option]))
+                    file.write("%s=%s\n" % (option, nml_settings[header][option][0]))
 
                 file.write("/\n\n")
 
@@ -227,7 +227,7 @@ def write_slurm_script(command_string: str,
         file.write("$!/bin/csh\n\n")
 
         for option in batch_settings: # We cycle through the batch settings list
-            file.write(sbatch_commands[option]+"%s\n"%batch_settings[option])
+            file.write(sbatch_commands[option]+"%s\n"%batch_settings[option][0])
 
         file.write("\n\n#--- COMMANDS --- #\n")
         file.write(command_string)
@@ -247,14 +247,13 @@ def write_clustep_ini(dict,filename):
         for header in dict:
             file.write("[%s]\n"%header)
             for option in dict[header]:
-                file.write("%s=%s\n"%(option,str(dict[header][option])))
+                file.write("%s=%s\n"%(option,str(dict[header][option][0])))
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------- Main ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
-    set_log(_filename, output_type="STDOUT")
+    set_log(_filename, output_type="FILE")
     from PyCS_System.text_utils import get_options
 
-    data = read_batch_config()
-    write_slurm_script("HELP ME",type="RAMSES",description="A standard script")
+    write_nml(get_options(read_RAMSES_config(),"RAMSES Settings"),name="testies.nml")
