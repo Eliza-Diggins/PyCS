@@ -84,6 +84,10 @@ install_files = {"files":{
     "un_filed": {
         "files": None,
         "setting_name": "unfiled_directory"
+    },
+    "tmp_file": {
+        "files": None,
+        "setting_name": "temp_directory"
     }
 }
 }
