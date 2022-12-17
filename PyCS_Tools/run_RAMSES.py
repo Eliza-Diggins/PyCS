@@ -72,6 +72,7 @@ if __name__ == '__main__':
                                    lambda file: ".dat" in file or ".g2" in file,
                                    search_for_description=False)
     selected_ic_path = os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"],selected_ic_file)
+    os.system('cls' if os.name == 'nt' else 'clear')
     log_print("Running RAMSES with initial conditions file %s."%selected_ic_path,_dbg_string,"debug")
 
     #Generating NML data
@@ -88,13 +89,13 @@ if __name__ == '__main__':
     time.sleep(0.1) # just waiting for prints to finish.
     ramses_config = get_options(ramses_configuration_data,"RAMSES Configuration")
     time.sleep(0.1)
-
+    os.system('cls' if os.name == 'nt' else 'clear')
     #Generating simulation settings
 ########################################################################################################################
 
     # getting user input for simulation #
     sim_data = set_simulation_information()
-
+    os.system('cls' if os.name == 'nt' else 'clear')
     ### Auto-generating data if not provided.
     # Setting simulation name #
     if sim_data['SimulationName']=="None":
@@ -154,6 +155,7 @@ if __name__ == '__main__':
                                      ramses_exec,
                                      nml_path)
     time.sleep(0.1)
+    os.system('cls' if os.name == 'nt' else 'clear')
     write_slurm_script(command_string,
                        name=slurm_name,
                        type="RAMSES",
