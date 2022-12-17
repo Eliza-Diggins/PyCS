@@ -195,7 +195,7 @@ def write_slurm_script(command_string: str,
     ### Introduction debug ###
     datetime_string = datetime.now().strftime('%m-%d-%Y_%H-%M-%S')
     fdbg_string = _dbg_string+"write_slurm_script: "
-    log_print("Writing a slurm script at %s/%s (name=%s,type=%s,description=%s)."%(save_location,name,name,type,description),fdbg_string,"debug")
+    log_print("Writing a slurm script at %s/%s (name=%s,type=%s,description=%s)."%(save_location,name,name,type),fdbg_string,"debug")
 
     ### Managing the save location ###
     if not os.path.exists(save_location): # The save location doesn't yet exist. We will make it

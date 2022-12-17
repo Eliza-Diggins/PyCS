@@ -111,6 +111,5 @@ if __name__ == '__main__':
                                            os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"],out_name)),
                            name=slurm_name,
                            type="CLUSTEP",
-                           description="%s Generation."%out_name,
                            batch=True)
 

@@ -157,6 +157,5 @@ if __name__ == '__main__':
     write_slurm_script(command_string,
                        name=slurm_name,
                        type="RAMSES",
-                       description=sim_data["Description"],
                        batch=True)
 
