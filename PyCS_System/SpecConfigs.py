@@ -178,7 +178,6 @@ def write_slurm_script(command_string: str,
                        save_location: str = os.path.join(CONFIG["system"]["directories"]["SLURM_directory"], "scripts"),
                        name: str = None,
                        type: str = None,
-                       description: str = None,
                        batch: bool = True):
     """
     Generates a .SLURM file with the given set of commands to run on the CHPC clusters. The save location is the directory
@@ -223,7 +222,6 @@ def write_slurm_script(command_string: str,
 
     ### Writing the batch script ###
     with open(os.path.join(save_location,name),"w+") as file: # Opening the file
-        file.write("#DESC:%s\n"%str(description))
         file.write("$!/bin/csh\n\n")
 
         for option in batch_settings: # We cycle through the batch settings list
