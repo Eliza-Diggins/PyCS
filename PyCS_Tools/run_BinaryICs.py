@@ -108,7 +108,7 @@ if __name__ == '__main__':
 ########################################################################################################################
     print_title("run_BinaryICs 1.0","Eliza Diggins")
     # Selecting a valid slurm file #
-    get_options(__binary_options_dict,"Collision Options")
+    __binary_options_dict = get_options(__binary_options_dict,"Collision Options")
 
     # Generating the ini files#
 ########################################################################################################################
