@@ -39,6 +39,18 @@ class PynbodyPlottingError(Exception):
     def __init__(self, message,snapshot=None):
         self.message = message
         super().__init__(self.message)
+
+class SimulationBackendError(Exception):
+    """Exception raised when an input is not a RAMSES simulation.
+
+    Attributes:
+
+    """
+
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
 if __name__ == '__main__':
     raise IsNotRAMSESError("Somethings")
 

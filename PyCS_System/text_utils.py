@@ -38,6 +38,7 @@ __GSV = {}
 def getFromDict(dataDict, mapList):
     return reduce(operator.getitem, mapList, dataDict)
 
+
 def pullValues(dict):
     """
     Pulls values only for the dict instead of tuple based options
@@ -50,14 +51,16 @@ def pullValues(dict):
 
     """
     ret_dict = {}
-    for key,value in dict.items():
-        if isinstance(value,list) or isinstance(value,tuple):
+    for key, value in dict.items():
+        if isinstance(value, list) or isinstance(value, tuple):
             ret_dict[key] = value[0]
-        elif isinstance(value,dict):
+        elif isinstance(value, dict):
             ret_dict[key] = pullValues(dict[key])
         else:
             pass
     return ret_dict
+
+
 def setInDict(dataDict, mapList, value):
     getFromDict(dataDict, mapList[:-1])[mapList[-1]] = value
 
@@ -82,9 +85,9 @@ def rclone_listdir(directory) -> tuple:
 
 def set_simulation_information():
     return pullValues(get_options({
-    "SimulationName":("None","None","The name of the simulation"),
-    "Description":("None","None","The description of the simulation"),
-    "NMLFile":("None","None","The name of the generated nml file")
+        "SimulationName": ("None", "None", "The name of the simulation"),
+        "Description": ("None", "None", "The description of the simulation"),
+        "NMLFile": ("None", "None", "The name of the generated nml file")
     }, "Simulation Options"))
 
 
@@ -102,7 +105,7 @@ def print_option_dict(dict, location, header=None):
     -------
 
     """
-    print("#"*100)
+    print("#" * 100)
     if not header:
         header = ["Value", "Default"]
     for key, value in dict.items():
@@ -173,23 +176,62 @@ def get_options_on_press(key):
             stop_listening()
         elif key == "backspace":
             if __GSV["location"] != []:
-                __GSV["location"]= __GSV["location"][:-1]
+                __GSV["location"] = __GSV["location"][:-1]
             else:
                 __GSV["command"] = "exit"
             __GSV["reset"] = True
             stop_listening()
         elif key == "down":
             key_id = __GSV["keys"].index(__GSV["selected_key"])
-            __GSV["selected_key"] = (__GSV["keys"][key_id+1] if __GSV["selected_key"] != __GSV["keys"][-1] else __GSV["keys"][0])
+            __GSV["selected_key"] = (
+                __GSV["keys"][key_id + 1] if __GSV["selected_key"] != __GSV["keys"][-1] else __GSV["keys"][0])
             stop_listening()
         elif key == "up":
             key_id = __GSV["keys"].index(__GSV["selected_key"])
-            __GSV["selected_key"] = (__GSV["keys"][key_id-1] if __GSV["selected_key"] != __GSV["keys"][0] else __GSV["keys"][-1])
+            __GSV["selected_key"] = (
+                __GSV["keys"][key_id - 1] if __GSV["selected_key"] != __GSV["keys"][0] else __GSV["keys"][-1])
             stop_listening()
     except AttributeError as ex:
         print(ex)
 
+def generate_command_on_press(key):
+    """
+    Key press function for get options.
+    Parameters
+    ----------
+    key
 
+    Returns
+    -------
+
+    """
+    # grabbing globals
+    global __GSV
+
+    ## Managing key entering ##
+    try:
+        if key == "enter":
+            __GSV["command"] = "e"
+            stop_listening()
+        elif key == "d":
+            __GSV["command"] = "d"
+            stop_listening()
+        elif key == "a":
+            __GSV["command"] = "a"
+            stop_listening()
+        elif key == "backspace":
+            __GSV["command"] = "end"
+            stop_listening()
+        elif key == "down":
+            __GSV["location_index"] = (
+                __GSV["location_index"]+1 if __GSV["location_index"] != len(__GSV["selected_commands"])-1  else 0)
+            stop_listening()
+        elif key == "up":
+            __GSV["location_index"] = (
+                __GSV["location_index"] - 1 if __GSV["location_index"] != 0 else len(__GSV["selected_commands"]) - 1)
+            stop_listening()
+    except AttributeError as ex:
+        print(ex)
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ---------------------------------------------------- Functions --------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -242,7 +284,7 @@ def get_options(option_dict, title):
     :param title:
     :return:
     """
-    global __GSV # using the global variable for storing the important data.
+    global __GSV  # using the global variable for storing the important data.
     # Intro logging #
     fdbg_string = "%sget_options: " % _dbg_string
     cdbg_string = fdbg_string + " [" + Fore.LIGHTGREEN_EX + Style.BRIGHT + "SETTING WIZARD" + Style.RESET_ALL + "]: "
@@ -266,9 +308,9 @@ def get_options(option_dict, title):
         "location": [],
         "selected_key": None,
         "sub_dict": {},
-        "keys":[],
-        "command":None,
-        "reset":True
+        "keys": [],
+        "command": None,
+        "reset": True
     }
     while not CHECK_DONE:  # we are still cycling'
 
@@ -291,7 +333,6 @@ def get_options(option_dict, title):
             __GSV["selected_key"] = list(__GSV["sub_dict"].keys())[0]
             __GSV["reset"] = False
 
-
         print_option_dict(__GSV["sub_dict"], __GSV["selected_key"], header=header)
 
         #
@@ -299,18 +340,19 @@ def get_options(option_dict, title):
         #
         listen_keyboard(on_press=get_options_on_press)  ### Waiting for the keyboard to select an entry.
 
-        if __GSV["command"]: # we have a command to execute
+        if __GSV["command"]:  # we have a command to execute
             if __GSV["command"] == "exit":
                 ### We are exiting the program
                 CHECK_DONE = True
                 return settings
             elif __GSV["command"] == "edit":
                 ### We are editing the selection.
-                inp = input("%sPlease enter a new value for %s. ['n' to return]:" % (cdbg_string,__GSV["selected_key"]))
+                inp = input(
+                    "%sPlease enter a new value for %s. ['n' to return]:" % (cdbg_string, __GSV["selected_key"]))
                 if inp != "n":
                     old_tuple = list(__GSV["sub_dict"][__GSV["selected_key"]])
                     old_tuple[0] = inp
-                    setInDict(settings,__GSV["location"]+[__GSV["selected_key"]],tuple(old_tuple))
+                    setInDict(settings, __GSV["location"] + [__GSV["selected_key"]], tuple(old_tuple))
                     __GSV["command"] = None
                 else:
                     __GSV["command"] = None
@@ -318,7 +360,7 @@ def get_options(option_dict, title):
                 ### We are editing the selection.
                 old_tuple = list(__GSV["sub_dict"][__GSV["selected_key"]])
                 old_tuple[0] = old_tuple[1]
-                setInDict(settings,__GSV["location"]+[__GSV["selected_key"]],tuple(old_tuple))
+                setInDict(settings, __GSV["location"] + [__GSV["selected_key"]], tuple(old_tuple))
                 __GSV["command"] = None
             else:
                 __GSV["command"] = None
@@ -427,6 +469,124 @@ def file_select(directory: str, conditions=None, search_for_description=True):
     print("%sSelected %s." % (cdbg_string, selected_file))  # --> This cannot actually be escaped.
     return selected_file
 
+
+def generate_command_sequence(commands_dict,**kwargs):
+    #Intro debugging
+########################################################################################################################
+    os.system('cls' if os.name == 'nt' else 'clear') # clearing the screen
+    fdbg_string = _dbg_string+"generate_command_sequence: "
+    cdbg_string = Fore.CYAN+Style.BRIGHT+fdbg_string+Style.RESET_ALL+"["+Fore.GREEN+Style.BRIGHT + "Settings Wizard" + Style.RESET_ALL + "]: "
+    log_print("Initiating the command sequence generator",fdbg_string,"debug")
+
+    # Setup
+########################################################################################################################
+    global __GSV # This is what we will use to interact with the keyboard logger.
+    __GSV["location_index"] = 0
+    selected_commands = [] # this dict stores the commands as they are selected.
+    __GSV["main_cycle_update_check"] = True
+
+    # Main Cycle: Here we are adding and removing and editing commands
+########################################################################################################################
+    main_runtime_check = False #toggle lock for the main loop
+    while not main_runtime_check: # beginning the main loop.
+        #updating
+    ####################################################################################################################
+        __GSV["command"] = False
+        if __GSV["main_cycle_update_check"]:
+            __GSV["selected_commands"] = selected_commands # reproducing the check on selected objects.
+            __GSV["main_cycle_update_check"] = False
+        #Printing
+    ####################################################################################################################
+        #- Printing the title -#
+        print_title("Command Select (version %s)"%CONFIG["system"]["version"],"Written by: Eliza Diggins")
+
+        #- printing the main section -#
+        print("+"+("-"*64)+"+")
+        if not len(list(selected_commands)):
+            print("[%s] No commands entered..."%(Fore.RED+"-"+Style.RESET_ALL))
+        else:
+            for index,command in enumerate(selected_commands): # cycle through all of the commands
+                if __GSV["location_index"] == index: # We are positioned here
+                    print("[%s]\t%s"%(Fore.BLACK+Back.WHITE+command["name"]+Style.RESET_ALL,Fore.CYAN+command["path"]+Style.RESET_ALL))
+                else:
+                    print("[%s]\t%s" % (Fore.RED + Style.BRIGHT + command["name"] + Style.RESET_ALL,
+                                        Fore.CYAN + command["path"] + Style.RESET_ALL))
+        print("+"+("-"*64)+"+")
+        print("|COMMANDS:")
+        print("|%s: Add a new command."%(Fore.RED+Style.BRIGHT+"a"+Style.RESET_ALL))
+        print("|%s: Edit an existing command."%(Fore.RED+Style.BRIGHT+"enter"+Style.RESET_ALL))
+        print("|%s: Finish."%(Fore.RED+Style.BRIGHT+"backspace"+Style.RESET_ALL))
+        print("|%s: Delete."%(Fore.RED+Style.BRIGHT+"d"+Style.RESET_ALL))
+        print("+"+("-"*64)+"+")
+        # Keyboard listening
+    ####################################################################################################################
+        listen_keyboard(on_press=generate_command_on_press)
+
+        # Command parsing
+    ####################################################################################################################
+        if __GSV["command"]!=False: # there is a command to execute.
+            # We are deleting the given entry. #
+            if __GSV["command"] == "d":
+                del selected_commands[__GSV["location_index"]]
+                __GSV["main_cycle_update_check"] = True
+
+            # We are editing the values
+            elif __GSV["command"] == "e":
+                __GSV_temp_copy = deepcopy(__GSV) # creating local copy of __GSV to free it up
+                os.system('cls' if os.name == 'nt' else 'clear')
+                selected_commands[__GSV_temp_copy["location_index"]]["options"] = get_options(selected_commands[__GSV_temp_copy["location_index"]]["options"],"%s Options"%selected_commands[__GSV_temp_copy["location_index"]]["name"])
+                __GSV = __GSV_temp_copy
+            # If we are ending the program
+            elif __GSV["command"] == "end":
+                main_runtime_check = True # end the main runtime check.
+            # We are adding a new item.
+            elif __GSV["command"] == "a":
+                # selecting the new command to use #
+                __GSV_temp_copy = deepcopy(__GSV) # creating local copy of __GSV to free it up
+
+                # Selecting a new command #
+                os.system('cls' if os.name == 'nt' else 'clear')
+                new_command = option_menu([key for key in list(commands_dict.keys())],{key:value["desc"] for key,value in commands_dict.items()},"Command Selection")
+
+                # We are now applying any presets that need to be used #
+                option_dict = commands_dict[new_command]["options"] # this is what we will use to get options
+                for key,value in kwargs.items(): # cycle through any pre-determined kwargs.
+                    if key in option_dict: # we have a match
+                        option_dict[key] = tuple([value]+list(option_dict[key][1:]))
+                    else:
+                        pass
+                # entering settings for the command #
+                os.system('cls' if os.name == 'nt' else 'clear')
+                options = get_options(option_dict,"%s Options"%new_command)
+
+                # adding the command to our list of commands #
+                os.system('cls' if os.name == 'nt' else 'clear')
+                new_command_dict =deepcopy(commands_dict[new_command])
+                new_command_dict["name"] = new_command
+                new_command_dict["options"] = options
+
+                selected_commands.append(new_command_dict)
+
+                __GSV = __GSV_temp_copy
+        os.system('cls' if os.name == 'nt' else 'clear')
+
+    ### Generating the command string ###
+    string = ""
+    for command in selected_commands:
+        command_path = command["path"]
+        string += "%s %s "%(CONFIG["system"]["executables"]["python_full"],command_path)
+        for key,value in command["options"].items():
+            if value[0] != "": # we actually gave an option
+                if key[0] == "-": # is it a dash option or not?
+                    if value[0] in ["true","false","False","True"]:
+                        if value[0] in ["true","True"]:
+                            string += "%s "%key
+                    else:
+                        string += "%s '%s' "%(key,value[0])
+                else:
+                    string += "'%s' "%value[0]
+        string += "\n"
+    return string
 
 def file_directory_select(directory_dict: dict):
     """
@@ -859,19 +1019,19 @@ def option_menu(options, desc=None, title=None):
 
     ### CYCLE SETUP ###
     selection_check = False
-    __GSV["location"] = 0 # This will store our location in the menu
-    __GSV["temp_store"] = False # This will store our choice.
+    __GSV["location"] = 0  # This will store our location in the menu
+    __GSV["temp_store"] = False  # This will store our choice.
 
     ### Defining on press items ###
     def on_press(key):
-        global __GSV # Grabbing the global source variable.
+        global __GSV  # Grabbing the global source variable.
         try:
             if key == "enter":
                 # do something
                 stop_listening()
                 __GSV["temp_store"] = options[__GSV["location"]]
             elif key == "down":
-                __GSV["location"] = (__GSV["location"]+ 1 if __GSV["location"]+ 1 <= len(options) - 1 else 0)
+                __GSV["location"] = (__GSV["location"] + 1 if __GSV["location"] + 1 <= len(options) - 1 else 0)
                 stop_listening()
             elif key == "up":
                 __GSV["location"] = (__GSV["location"] - 1 if __GSV["location"] - 1 >= 0 else len(options) - 1)
@@ -917,13 +1077,16 @@ def option_menu(options, desc=None, title=None):
             print_title("Menu", "Select an option")
 
 
-
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------- Main ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename, output_type="FILE")
-    get_options({"Option 1": {"Onions": (3, 1, "Green Veggie"),
-                              "Bananas": (4, 5, "Yellow Fun"),
-                              "Watermelons": (6, 5, "Greenies")},
-                 "Option 2": (16, 17, "Boring")}, "Title")
+    generate_command_sequence({
+        "Command 1":{
+        "path":"some_path",
+        "desc":"Some potential command",
+        "options": {"option 1":("1","1","some description"),
+                    "Simulation":("None","None","The simulation")}
+    }
+    },Simulation="a sim")

@@ -59,10 +59,8 @@ def align_snapshot(snapshot)->None:
         raise IsNotRAMSESError("The simulation is not a RAMSES snapshot.")
 
     ##- Aligning -##
-    try:
-        snapshot["pos"] -=boxlength
-    except Exception:
-        raise SnapshotError("Could not align the snapshot.",snapshot=snapshot) # Raise an error for alignment issues
+
+    snapshot["pos"] -= boxlength
 
     ##- Managing Units -##
     snapshot.physical_units() # convert from raw computational units to CSG units.

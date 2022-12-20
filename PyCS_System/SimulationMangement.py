@@ -62,6 +62,38 @@ _valid_simulation_kwargs = [
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Sub-Functions ------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+def get_simulation_qty(output_qty,known_kwargs):
+    """
+    Returns the desired output qty of all simulations matching the known kwargs.
+    Parameters
+    ----------
+    output_qty
+    known_kwargs
+
+    Returns
+    -------
+
+    """
+    simlog = read_simulation_log()
+
+    matches = []
+
+    for key,value in simlog.items():
+        check_match = True
+        if isinstance(value,dict) and key != "Global":
+            shared_keys = [key for key in known_kwargs if key in value]
+            for known_key in shared_keys:
+                if value[known_key] == known_kwargs[known_key]: # This is a match
+                    pass
+                else:
+                    check_match = False
+            if check_match and len(shared_keys):
+                matches.append(key)
+        else:
+            pass
+
+    return [simlog[match][output_qty] for match in matches]
+
 def read_simulation_log(file: str = _simulation_logs_directory) -> dict:
     """
     Reads in the TOML file containing the simulation data.
@@ -345,4 +377,4 @@ if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT")
     from PyCS_System.text_utils import set_simulation_information
 
-    print_simulation_log()
+    print(get_simulation_qty("SimulationName",{"ICFile":"Gal_test.dat"}))
