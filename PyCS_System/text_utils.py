@@ -470,7 +470,7 @@ def file_select(directory: str, conditions=None, search_for_description=True):
     return selected_file
 
 
-def generate_command_sequence(commands_dict,**kwargs):
+def generate_command_sequence(commands_dict,commands_dict_data,**kwargs):
     #Intro debugging
 ########################################################################################################################
     os.system('cls' if os.name == 'nt' else 'clear') # clearing the screen
@@ -575,16 +575,21 @@ def generate_command_sequence(commands_dict,**kwargs):
     for command in selected_commands:
         command_path = command["path"]
         string += "%s %s "%(CONFIG["system"]["executables"]["python_full"],command_path)
+
         for key,value in command["options"].items():
-            if value[0] != "": # we actually gave an option
-                if key[0] == "-": # is it a dash option or not?
-                    if value[0] in ["true","false","False","True"]:
+            if value[0] != "": # this option is actually set and should appear.
+                if key[0] == "-": # this is a dashed command
+                    if commands_dict_data[command["name"]]["options"][key] == "b":
                         if value[0] in ["true","True"]:
                             string += "%s "%key
+                        else:
+                            pass
+                    elif commands_dict_data[command["name"]]["options"][key] == "l":
+                        string += "%s %s "%(key,value[0])
                     else:
                         string += "%s '%s' "%(key,value[0])
                 else:
-                    string += "'%s' "%value[0]
+                    string+= "'%s' "%(value[0])
         string += "\n"
     return string
 

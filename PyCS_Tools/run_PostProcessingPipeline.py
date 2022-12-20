@@ -80,7 +80,53 @@ commands_dict = {
         }
     }
 }
-
+commands_dict_data = {
+    "Generate Image Sequence": {
+        "path": os.path.join(_pycs_head, "PyCS_Commands", "GenerateImageSequence.py"),
+        "desc": "Plot a sequence of images with a selection of kwargs for the selected simulation.",
+        "options": {
+            "qty": "s",
+            "-sim":  "s",
+            "-simdir":  "s",
+            "-v": "l",
+            "-w": "s",
+            "-t": "s",
+            "-u": "s",
+            "-tu":  "s",
+            "-r":  "s",
+            "-f":  "l",
+            "-i":  "b",
+            "-log":  "b",
+            "-cmap":  "s",
+            "-o":  "s",
+            "-l":  "s",
+            "-np":  "s",
+        }
+    },
+    "Plot Single Snapshot": {
+        "path": os.path.join(_pycs_head, "PyCS_Commands", "PlotSingleSnapshot.py"),
+        "desc": "Plot a sequence of images with a selection of kwargs for the selected simulation.",
+        "options": {
+            "qty":  "s",
+            "ns": "s",
+            "-sim":  "s",
+            "-simdir":  "s",
+            "-v":  "l",
+            "-t":  "s",
+            "-s":  "b",
+            "-w":  "s",
+            "-u":  "s",
+            "-tu":  "s",
+            "-r":  "s",
+            "-f":  "l",
+            "-i":  "b",
+            "-log":  "b",
+            "-cmap":  "s",
+            "-o": "s",
+            "-l":  "s",
+        }
+    }
+}
 main_command_string = """
 #- directory management -#
 setenv WORKDIR %s
@@ -133,7 +179,7 @@ if __name__ == '__main__':
 
     # Running the command generator #
 ########################################################################################################################
-    command_string = generate_command_sequence(commands_dict,**kwargs)
+    command_string = generate_command_sequence(commands_dict,commands_dict_data,**kwargs)
 
     final_command_string = main_command_string+command_string
     # batching
