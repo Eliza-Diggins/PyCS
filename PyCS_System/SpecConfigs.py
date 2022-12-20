@@ -220,6 +220,8 @@ def write_slurm_script(command_string: str,
     batch_default_settings = read_batch_config() # grab the basic batch system files.
     batch_settings = get_options(batch_default_settings,"Batch Settings") # grabbing the proper settings
 
+    for setting in ["BATCH_STD_OUT_FRMT","BATCH_STD_ERR_FRMT"]:
+        batch_settings[setting] = tuple([os.path.join(CONFIG["system"]["directories"]["SLURM_directory"],"output",batch_settings[setting][0])]+list(batch_settings[setting])[1:])
     ### Writing the batch script ###
     with open(os.path.join(save_location,name),"w+") as file: # Opening the file
         file.write("#!/bin/csh\n\n")
