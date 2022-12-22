@@ -88,6 +88,15 @@ install_files = {"files":{
     "tmp_file": {
         "files": None,
         "setting_name": "temp_directory"
+    },
+    "Parameter_Files":{
+        "files": {
+            "CLUSTEP_params": {
+                "files":None,
+                "setting_name":None
+            }
+        },
+        "setting_name":"parameter_directory"
     }
 }
 }
