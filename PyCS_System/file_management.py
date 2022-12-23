@@ -37,7 +37,8 @@ _location_setting_names = {  # Here, we store all of the settings that we are go
     "figures_directory": "Figures",
     "movies_directory": "Movies",
     "initial_conditions_directory": "Initial Conditions",
-    "RAMSES_nml_directory": "NML Files"
+    "RAMSES_nml_directory": "NML Files",
+    "reports_directory":"Reports"
 }
 _file_header_dict = {  # Stores all of the relative paths (local,box)
     CONFIG["system"]["directories"][item]: CONFIG["files"]["rclone"]["headers"][item] for item in
