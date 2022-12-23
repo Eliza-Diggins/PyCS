@@ -18,6 +18,7 @@ from PyCS_System.SpecConfigs import read_clustep_config,write_slurm_script,write
 import pathlib as pt
 from datetime import datetime
 from PyCS_System.text_utils import get_options
+from PyCS_System.SimulationMangement import add_ic_file
 import time
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
@@ -91,6 +92,26 @@ if __name__ == '__main__':
         clusters = [file for file in os.listdir(CONFIG["system"]["directories"]["initial_conditions_directory"]) if "Clu" in file]
         n = len(clusters)+1
         out_name = "Clu_%s.dat"%n
+
+
+    # Adding to IC log
+    ####################################################################################################################
+    #- grabbing the second parameter file storage location -#
+    param_file_path = os.path.join(CONFIG["system"]["directories"]["parameter_directory"],
+                                   out_name.replace(".dat",""),
+                                   "param_1.ini")
+
+    #- generating the directory if necessary -#
+    if not os.path.isdir(pt.Path(param_file_path).parents[0]):
+        pt.Path.mkdir(pt.Path(param_file_path).parents[0],parents=True)
+
+    #- spawn in the correct parameters file -#
+    write_clustep_ini(clustep_config,param_file_path)
+
+    #- adding everything to the log -#
+    add_ic_file(os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"],out_name),
+                param_files=[param_file_path],
+                type="cluster-single")
 
     ### RUNNING THE PROGRAM ###
     if args.no_batch:

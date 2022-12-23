@@ -93,6 +93,26 @@ __quantities = {
         "unit": CONFIG["units"]["default_density_unit"],
         "fancy": "Density",
         "families": ["gas"]
+    },
+    "mass_enc":{
+        "unit":CONFIG["units"]["default_mass_unit"],
+        "fancy": "Enclosed Mass",
+        "families":["gas","stars","dm"]
+    },
+    "dyntime":{
+        "unit":"Myr",
+        "fancy":"Dynamical Time",
+        "families":["gas","stars","dm"]
+    },
+    "g_spherical":{
+        "unit":"m s^-2",
+        "fancy":"Spherical Potential",
+        "families":["gas","stars","dm"]
+    },
+    "p":{
+        "unit":"N m^-2",
+        "fancy":"Pressure",
+        "families":["gas"]
     }
 }
 
@@ -137,7 +157,7 @@ def fancy_qty(qty):
 def fix_array(array, qty, units):
     """
     Run on all outputting arrays using the fixed units and the quantity. This can be used to correct for issues in the array ahead of time.
-
+    TODO: This doesn't return a united array, so we've used different behaviors in make_plot and make_profile_plot. This should be dealt with.
     Parameters
     ----------
     array: The array to fix.
@@ -150,7 +170,29 @@ def fix_array(array, qty, units):
     """
     print(qty,units)
     if qty == "temp" and units != "K":
-        return array * boltzmann.in_units("%s K^-1" % units) * (pyn.units.Unit("%s K^-1" % units))
+        print(array)
+        return array * float(boltzmann.in_units("%s K^-1" % units))
+    else:
+        return array
+
+def fix_array_u(array, qty, units):
+    """
+    Run on all outputting arrays using the fixed units and the quantity. This can be used to correct for issues in the array ahead of time.
+    TODO: This doesn't return a united array, so we've used different behaviors in make_plot and make_profile_plot. This should be dealt with.
+    Parameters
+    ----------
+    array: The array to fix.
+    qty: The quantity to use.
+    units: The units that we actually want to use.
+
+    Returns: fixed array.
+    -------
+
+    """
+    print(qty,units)
+    if qty == "temp" and units != "K":
+        print(array)
+        return array * float(boltzmann.in_units("%s K^-1" % units)) * pyn.units.Unit(units)
     else:
         return array
 
@@ -336,8 +378,9 @@ def make_plot(snapshot,
     extent = [-numerical_width / 2, numerical_width / 2, -numerical_width / 2, numerical_width / 2]
 
     #- Getting the data -#
+    print(kwargs)
     image_array = generate_image_array(snapshot, qty, families=families, **kwargs)
-
+    print(image_array)
     ### Managing colors ###
     if not vmin:
         vmin = np.amin(image_array)
@@ -419,7 +462,7 @@ def make_profile_plot(snapshot,
     """
     # Intro Debugging
     ####################################################################################################################
-    fdbg_string = "%smake_profile_plot: "
+    fdbg_string = "%smake_profile_plot: "%_dbg_string
     log_print("Generating %s profile plot for snapshot %s."%(qty,snapshot),fdbg_string,"debug")
 
     # Managing profile kwargs
@@ -473,17 +516,17 @@ def make_profile_plot(snapshot,
     #- grabbing the y array -#
     try:
         # We need to fix this array to manage possible unit errors #
-        y = fix_array(profile[qty],qty,(__quantities[qty]["unit"] if "unit_y" not in kwargs else kwargs["unit_y"]))
-        print(y,y.units)
+        y = fix_array_u(profile[qty],qty,(__quantities[qty]["unit"] if "unit_y" not in kwargs else kwargs["unit_y"]))
     except KeyError:
         make_error(ValueError,fdbg_string,"The quantity %s is not a valid quantity for this profile..."%qty)
         return None
 
-    if "units_y" in kwargs:
-        y = y.in_units(kwargs["units_y"])
-        del kwargs["units_y"]
-    else:
-        y = y.in_units(__quantities[qty]["unit"])
+    if qty != "temp":
+        if "units_y" in kwargs:
+            y = y.in_units(kwargs["units_y"])
+            del kwargs["units_y"]
+        else:
+            y = y.in_units(__quantities[qty]["unit"])
 
     # Setting up plotting
     ####################################################################################################################
@@ -538,6 +581,9 @@ def make_profile_plot(snapshot,
 
     #- adding a legend -#
     plt.legend()
+
+    #- adding the grid -#
+    plt.grid()
 
     # Saving
     #########################################################################################################################
@@ -638,8 +684,8 @@ def generate_image_sequence(simulation_directory, qty, multiprocess=True, nproc=
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT", level=10)
-    data = pyn.load(os.path.join(CONFIG["system"]["directories"]["RAMSES_simulations_directory"],"TestSim","output_00500"))
-    align_snapshot(data)
-    profile = pyn.analysis.profile.Profile(data.g)
-    make_profile_plot(data,"density",Lambda_label="some function",save=False,Lambda=lambda x: x**2,family="gas",nbins=100,type="equaln",c="red",logy=True,logx=True,ls="--",units_x="km")
-
+    data = pyn.load("/home/ediggins/PyCS/initial_conditions/Col_5.dat")
+    print(data)
+    data.g["smooth"] = pyn.sph.smooth(data.g)
+    data.g["rho"] = pyn.sph.rho(data.g)
+    make_plot(data,"temp",width="12000 kpc",save=False,log=False)

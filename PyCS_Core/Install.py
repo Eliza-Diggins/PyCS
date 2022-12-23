@@ -39,6 +39,10 @@ install_files = {"files":{
             "Simulation_Logs": {
                 "files": None,
                 "setting_name": None
+            },
+            "IC_Logs": {
+                "files": None,
+                "setting_name":None
             }
         },
         "setting_name":"bin_directory"
@@ -97,6 +101,10 @@ install_files = {"files":{
             }
         },
         "setting_name":"parameter_directory"
+    },
+    "IC_Reports":{
+        "files": None,
+        "setting_name":"reports_directory"
     }
 }
 }

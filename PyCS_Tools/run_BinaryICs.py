@@ -12,6 +12,7 @@ sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
 from PyCS_Core.Logging import set_log, log_print, make_error
 from PyCS_System.text_utils import file_select,print_title, get_options
+from PyCS_System.SimulationMangement import add_ic_file
 from PyCS_System.SpecConfigs import read_clustep_config, write_clustep_ini, write_slurm_script
 import pathlib as pt
 import argparse
@@ -110,11 +111,6 @@ if __name__ == '__main__':
     # Selecting a valid slurm file #
     __binary_options_dict = get_options(__binary_options_dict,"Collision Options")
 
-    # Generating the ini files#
-########################################################################################################################
-    write_clustep_ini(__binary_options_dict["Cluster 1"],os.path.join(CONFIG["system"]["directories"]["temp_directory"],"bin_temp_clu1.ini"))
-    write_clustep_ini(__binary_options_dict["Cluster 2"],
-                      os.path.join(CONFIG["system"]["directories"]["temp_directory"], "bin_temp_clu2.ini"))
 
     # Getting output name
 ########################################################################################################################
@@ -126,6 +122,28 @@ if __name__ == '__main__':
 
     log_print("Generating %s."%out_name,_dbg_string,"info")
 
+    # Adding to the IC LOG
+    ####################################################################################################################
+    #- grabbing the second parameter file storage location -#
+    param_file_path = str(os.path.join(CONFIG["system"]["directories"]["parameter_directory"],
+                                   out_name.replace(".dat",""),
+                                   "param_%s.ini"))
+
+    #- generating the directory if necessary -#
+    if not os.path.isdir(pt.Path(param_file_path).parents[0]):
+        pt.Path.mkdir(pt.Path(param_file_path).parents[0],parents=True)
+
+    #- spawn in the correct parameters file -#
+    for id in ["1","2"]:
+        write_clustep_ini(__binary_options_dict["Cluster %s"%id],param_file_path%id)
+
+    #- adding everything to the log -#
+    add_ic_file(os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"],out_name),
+                param_files=[param_file_path%i for i in ["1","2"]],
+                type="cluster-binary")
+
+    # Running
+    ####################################################################################################################
     if args.no_batch:
         # Getting snapjoin set up.
         ########################################################################################################################
@@ -144,10 +162,10 @@ if __name__ == '__main__':
             str(pt.Path(os.path.realpath(__file__)).parents[1]),
             CONFIG["system"]["executables"]["python_full"],
             clustep_exec,
-            os.path.join(CONFIG["system"]["directories"]["temp_directory"], "bin_temp_clu1.ini"),
+            param_file_path%"1",
             clustep_exec,
             CONFIG["system"]["directories"]["temp_directory"],
-            os.path.join(CONFIG["system"]["directories"]["temp_directory"], "bin_temp_clu2.ini"),
+            param_file_path%"2",
             clustep_exec,
             CONFIG["system"]["directories"]["temp_directory"],
             snapgadet_command
@@ -171,10 +189,10 @@ if __name__ == '__main__':
         command_string = __command_variables_batch%(
             str(pt.Path(os.path.realpath(__file__)).parents[1]),
             clustep_exec,
-            os.path.join(CONFIG["system"]["directories"]["temp_directory"], "bin_temp_clu1.ini"),
+            param_file_path%"1",
             clustep_exec,
             CONFIG["system"]["directories"]["temp_directory"],
-            os.path.join(CONFIG["system"]["directories"]["temp_directory"], "bin_temp_clu2.ini"),
+            param_file_path%"2",
             clustep_exec,
             CONFIG["system"]["directories"]["temp_directory"],
             snapgadet_command

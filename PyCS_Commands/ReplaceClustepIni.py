@@ -50,5 +50,5 @@ if __name__ == '__main__':
     # MAIN
 ########################################################################################################################
     log_print("Replacing %s with %s."%(clustep_ini_file,args.IniFile),_dbg_string,"info")
-    os.system("mv %s %s"%(args.IniFile,clustep_ini_file))
+    os.system("cp -f %s %s"%(args.IniFile,clustep_ini_file))
     log_print("Replaced %s with %s."%(clustep_ini_file,args.IniFile),_dbg_string,"info")

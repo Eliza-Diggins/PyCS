@@ -62,6 +62,8 @@ _valid_simulation_kwargs = [
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Sub-Functions ------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+# SIMULATION MANAGEMENT FUNCTIONS
+#----------------------------------------------------------------------------------------------------------------------#
 def get_simulation_qty(output_qty,known_kwargs):
     """
     Returns the desired output qty of all simulations matching the known kwargs.
@@ -298,6 +300,66 @@ def print_calcs(sim_log, pad=2, headers=None):
                 left_overs_dict[key][val] = header_length[headers.index(val)] - (len(sim_log[key][val]))
     return (header_length, left_overs_dict)
 
+# IC MANAGEMENT TOOLS
+#----------------------------------------------------------------------------------------------------------------------#
+def add_ic_file(file,**kwargs):
+    # Intro debugging
+    ####################################################################################################################
+    fdbg_string = "%sadd_ic_file: "%_dbg_string
+    log_print("Adding %s to the IC log with kwargs:%s."%(file,kwargs),fdbg_string,"debug")
+
+    # Checking for / creating the IC log
+    ####################################################################################################################
+    #- Checking that the correct directory exists first and creating it if not -#
+    if not os.path.isdir(os.path.join(CONFIG["system"]["directories"]["bin_directory"],"IC_Logs")):
+        pt.Path.mkdir(pt.Path(os.path.join(CONFIG["system"]["directories"]["bin_directory"],"IC_Logs")),parents=True)
+
+    #- Checking if there is already a file -#
+    log_path = os.path.join(CONFIG["system"]["directories"]["bin_directory"],"IC_Logs","IC_log.log") # generating the log path.
+    if not os.path.exists(log_path):
+        # The file doesn't exist, so we make it #
+        with open(log_path,"w+") as f:
+            pass # Creates the file and then closes.
+
+        # return an empty iclog item #
+        iclog = {}
+    else:
+        # The path does exist, we load it.
+        iclog = toml.load(log_path)
+
+    # Adding the file to the IC log
+    ####################################################################################################################
+    file_name = pt.Path(file).name # grab just the name and remove parents.
+
+    ##- is there already an entry? -##
+    if file_name in iclog: # there is a matching key.
+        log_print("%s already exists in the IC log. Replacing it."%file_name,fdbg_string,"warning")
+
+        for key,value in kwargs.items(): # cycle through all of the kwargs.
+            iclog[file_name][key] = value
+
+    else: # that key doesn't exist yet.
+        iclog[file_name] = {}
+
+        for key, value in kwargs.items():  # cycle through all of the kwargs.
+            iclog[file_name][key] = value
+
+
+    # Adding basic info
+    ####################################################################################################################
+    iclog[file_name]["CreatedDate"] = datetime.now()
+    iclog[file_name]["location"] = str(file)
+
+    # Deleting and replacing
+    ####################################################################################################################
+    os.remove(log_path)
+
+    with open(log_path,"w+") as f:
+        toml.dump(iclog,f)
+
+def read_ic_log():
+    log_path = os.path.join(CONFIG["system"]["directories"]["bin_directory"],"IC_Logs","IC_log.log")
+    return toml.load(log_path)
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Functions -------------------------------------------------------#
@@ -377,4 +439,3 @@ if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT")
     from PyCS_System.text_utils import set_simulation_information
 
-    print(get_simulation_qty("SimulationName",{"ICFile":"Gal_test.dat"}))
