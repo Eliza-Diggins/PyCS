@@ -137,7 +137,7 @@ def file_select():
                                                                                                                           installation_directory))
             else:
                 pass
-        utils.clear_screen()
+        os.system('cls' if os.name == 'nt' else 'clear')
 
 def make_files_recur(location:str,file:dict,level=0):
     for directory in file["files"]:

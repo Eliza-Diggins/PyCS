@@ -14,6 +14,7 @@ sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 import utils as utils
 from colorama import Fore, Style
 import shutil
+import tomlkit as t
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Variables ------------------------------------------------------#
@@ -135,13 +136,17 @@ def make_files(directory):
 # ------------------------------------------------------- Main ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
+    # Startup
+    ####################################################################################################################
     print("#--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#")
     print("#                                                  #")
     print("#                PyCS Update Wizard                #")
     print("#            Written By: Eliza Diggins             #")
     print("#--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#")
     print("%sSearching for an installation ticket..." % fdbg_string, end=" ")
-    ### searching for the update ticket ###
+
+    # Locating the update ticket
+    ####################################################################################################################
     if os.path.exists(os.path.join(str(pt.Path(os.path.realpath(__file__)).parents[0]).replace(".py", ""), "tkt",
                                    "ticket.INSTALL_TICKET")):
         ### The update ticket was found successfully
@@ -152,7 +157,7 @@ if __name__ == '__main__':
             "%sNo installation ticket was found. Please try reinstalling or create a ticket. Press any key to exit..." % fdbg_string)
         exit()
 
-    ### Reading the installation ticket ###
+    #- Reading the installation ticket if it exists -#
     print("%sReading installation ticket..." % fdbg_string, end=" ")
     with open(os.path.join(str(pt.Path(os.path.realpath(__file__)).parents[0]).replace(".py", ""), "tkt",
                            "ticket.INSTALL_TICKET"), "r") as file:
@@ -169,9 +174,8 @@ if __name__ == '__main__':
             "%sThe installation directory no longer exists. Press any key to exit..." % fdbg_string)
         exit()
 
-    # --------------------------------------------------------#
-    #    We've found the install directory. Updating          #
-    # --------------------------------------------------------#
+    # The installation directory has been located. We now update.
+    ####################################################################################################################
     os.chdir(str(pt.Path(os.path.realpath(__file__)).parents[1]))  # moving up to the git repo level
 
     print("%sFetching update from git." % fdbg_string)
@@ -179,14 +183,17 @@ if __name__ == '__main__':
     os.system("git reset --hard origin/master")  # Resetting the system
     print("%sUpdated the code base." % fdbg_string)
 
-    # --------------------------------------------------------#
-    #                 Managing the CONFIGs                    #
-    # --------------------------------------------------------#
+    # Managing configs
+    ####################################################################################################################
     __local_configs_path = os.path.join(__installation_directory, "bin", "configs")
     local_configs = [file for file in os.listdir(__local_configs_path) if ".ini" in file]
     master_configs = [file for file in os.listdir(__install_config_file_path) if ".ini" in file]
+
+    #- updating the configuration files -#
     print("%sFound %s local configs and %s master configs. Updating..." % (
     fdbg_string, len(local_configs), len(master_configs)))
+
+
     for master_config in master_configs:
         # We cycle through each of these looking for any issues #
         if master_config not in local_configs:
@@ -196,21 +203,25 @@ if __name__ == '__main__':
             shutil.copy(os.path.join(__install_config_file_path, master_config),
                         os.path.join(__local_configs_path, master_config))
             print(" [" + Fore.CYAN + Style.BRIGHT + "DONE" + Style.RESET_ALL + "]")
+
         else:
             ### The master config matches something in local config ###
             print("%sFound both local and master versions of " % fdbg_string + Fore.BLUE + str(
                 master_config) + Style.RESET_ALL + ". Resolving conflicts...", end=" ")
 
             # reading the master toml file
-            temp_config_master = toml.load(os.path.join(__install_config_file_path, master_config))
-            temp_config_local = toml.load(os.path.join(__local_configs_path, master_config))
+            with open(os.path.join(__install_config_file_path,master_config),"r+") as file:
+                temp_config_master = t.load(file)
+            with open(os.path.join(__local_configs_path,master_config),"r+") as file:
+                temp_config_local = t.load(file)
 
             # resolved config #
             resolved_config = update_dict(temp_config_master, temp_config_local)
 
+            #- updating the file -#
             os.remove(os.path.join(__local_configs_path, master_config))
             with open(os.path.join(__local_configs_path, master_config), "w+") as file:
-                toml.dump(resolved_config, file)
+                t.dump(resolved_config, file)
 
             print(" [" + Fore.CYAN + Style.BRIGHT + "DONE" + Style.RESET_ALL + "]")
 
