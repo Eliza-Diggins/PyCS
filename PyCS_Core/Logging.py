@@ -160,7 +160,8 @@ def set_log(script_name: str,
 
     mpl_logger = logging.getLogger('matplotlib')
     mpl_logger.setLevel(logging.WARNING)
-
+    stream_logger = logging.getLogger("PIL")
+    stream_logger.setLevel(logging.WARNING)
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------------  MAIN  --------------------------------------------------------#

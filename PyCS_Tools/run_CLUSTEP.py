@@ -39,6 +39,13 @@ ml miniconda3/latest
 
 #- Environment Management -#
 setenv WORKDIR %s
+setenv CMDDIR %s
+
+#- moving the param file -#
+cd $CMDDIR
+%s %s '%s'
+
+
 cd $WORKDIR
 
 #- Main Command -#
@@ -71,16 +78,6 @@ if __name__ == '__main__':
     #- Writing the clustep config to the install location -#
     #- We need to write it specially because it cannot be written by TOML
     params_dir = os.path.join(CONFIG["system"]["executables"]["CLUSTEP_install"],"params_cluster.ini")
-
-    # managing the case when the file already exists
-    if os.path.exists(params_dir):
-        # there is already a copy
-        log_print("Found a copy of params_cluster.ini in Clustep install. Removing and replacing.",_dbg_string,"info")
-        os.remove(params_dir)
-
-    # writing the param.ini file
-    write_clustep_ini(clustep_config,params_dir)
-
 
     time.sleep(0.1)
 
@@ -117,6 +114,12 @@ if __name__ == '__main__':
     if args.no_batch:
         ### We are not using the scheduler for this job ###
         usr_dir = os.getcwd() # get a current dir to return to.
+
+        #- copying the parameter file -#
+        os.chdir(str(pt.Path(os.path.realpath(__file__)).parents[1]))
+        os.system("%s %s '%s'"%(python_exec,os.path.join("PyCS_Commands","ReplaceClustepIni.py"),param_file_path))
+
+        #- executing -#
         os.chdir(clustep_exec) # go to installation location
 
         # running the command in the correct python version #
@@ -128,7 +131,12 @@ if __name__ == '__main__':
         ### We are going to send things to SLURM ###
         slurm_name = "SLURM_CLUSTEP_%s_%s.slurm"%(out_name.replace(".dat",""),datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))
 
-        write_slurm_script(command_string%(clustep_exec,python_exec,
+        write_slurm_script(command_string%(clustep_exec,
+                                           str(pt.Path(os.path.realpath(__file__)).parents[1]),
+                                           python_exec,
+                                           os.path.join("PyCS_Commands", "ReplaceClustepIni.py"),
+                                           param_file_path,
+                                           python_exec,
                                            os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"],out_name)),
                            name=slurm_name,
                            type="CLUSTEP",

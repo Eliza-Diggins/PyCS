@@ -9,7 +9,7 @@ import os
 import sys
 import pathlib as pt
 import numpy as np
-
+import copy
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
 import pynbody as pyn
@@ -33,7 +33,6 @@ _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
 
-
 ##- Setting up TEX if it is configured -##
 try:
     if CONFIG["Visualization"]["use_tex"]:
@@ -50,19 +49,28 @@ except RuntimeError:
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Fixed Variables ----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-__pynbody_image_defaults = {  # This dictionary tracks the default kwargs to pass to pyn.plot.sph.image
+
+#----# PYNBODY KWARGS DEFAULT #----------------------------------------------------------------------------------------#
+#   These are used by the plotting functions as the basic input kwargs for the plotting functions. They are added
+#   to the input kwargs to create a standardized set of always passed kwargs.
+#
+__pynbody_image_defaults = {
     "cmap": CONFIG["Visualization"]["ColorMaps"]["default_image_colormap"],
     "resolution": CONFIG["Visualization"]["Images"]["default_resolution"],
     "width": CONFIG["Visualization"]["Images"]["default_width"]
-}
+} # Kwargs to pass into pyn.plot.sph.image
 __pynbody_profile_defaults = {
-    "ndim":CONFIG["analysis"]["profiles"]["profile_ndim"],
-    "nbins":CONFIG["analysis"]["profiles"]["nbins"],
-    "type":CONFIG["analysis"]["profiles"]["type"],
-    "rmin":None,
-    "rmax":None
-}
+    "ndim": CONFIG["analysis"]["profiles"]["profile_ndim"],
+    "nbins": CONFIG["analysis"]["profiles"]["nbins"],
+    "type": CONFIG["analysis"]["profiles"]["type"],
+    "rmin": None,
+    "rmax": None
+} # Kwargs to pass through pyn.analysis.profile.Profile
 
+#---# QUANTITY SPECIFIC DEFAULTS #-------------------------------------------------------------------------------------#
+#   These dictionaries carry kwargs specific to each quantity that gets passed into either the profiles or
+#   the pyn.plot.sph.image() function.
+#
 __quantities = {
     "vx": {
         "unit": CONFIG["units"]["default_velocity_unit"],
@@ -94,31 +102,29 @@ __quantities = {
         "fancy": "Density",
         "families": ["gas"]
     },
-    "mass_enc":{
-        "unit":CONFIG["units"]["default_mass_unit"],
+    "mass_enc": {
+        "unit": CONFIG["units"]["default_mass_unit"],
         "fancy": "Enclosed Mass",
-        "families":["gas","stars","dm"]
+        "families": ["gas", "stars", "dm"]
     },
-    "dyntime":{
-        "unit":"Myr",
-        "fancy":"Dynamical Time",
-        "families":["gas","stars","dm"]
+    "dyntime": {
+        "unit": "Myr",
+        "fancy": "Dynamical Time",
+        "families": ["gas", "stars", "dm"]
     },
-    "g_spherical":{
-        "unit":"m s^-2",
-        "fancy":"Spherical Potential",
-        "families":["gas","stars","dm"]
+    "g_spherical": {
+        "unit": "m s^-2",
+        "fancy": "Spherical Potential",
+        "families": ["gas", "stars", "dm"]
     },
-    "p":{
-        "unit":"N m^-2",
-        "fancy":"Pressure",
-        "families":["gas"]
+    "p": {
+        "unit": "N m^-2",
+        "fancy": "Pressure",
+        "families": ["gas"]
     }
 }
 
-
-
-### Constants ###
+#---# PHYSICAL CONSTANTS #---------------------------------------------------------------------------------------------#
 boltzmann = 1.380649e-23 * pyn.units.Unit("J K^-1")  # Defining the Boltzmann constant
 
 
@@ -157,7 +163,6 @@ def fancy_qty(qty):
 def fix_array(array, qty, units):
     """
     Run on all outputting arrays using the fixed units and the quantity. This can be used to correct for issues in the array ahead of time.
-    TODO: This doesn't return a united array, so we've used different behaviors in make_plot and make_profile_plot. This should be dealt with.
     Parameters
     ----------
     array: The array to fix.
@@ -168,17 +173,16 @@ def fix_array(array, qty, units):
     -------
 
     """
-    print(qty,units)
     if qty == "temp" and units != "K":
-        print(array)
         return array * float(boltzmann.in_units("%s K^-1" % units))
     else:
         return array
 
+
 def fix_array_u(array, qty, units):
     """
     Run on all outputting arrays using the fixed units and the quantity. This can be used to correct for issues in the array ahead of time.
-    TODO: This doesn't return a united array, so we've used different behaviors in make_plot and make_profile_plot. This should be dealt with.
+    **UNIT-ED**
     Parameters
     ----------
     array: The array to fix.
@@ -189,9 +193,7 @@ def fix_array_u(array, qty, units):
     -------
 
     """
-    print(qty,units)
     if qty == "temp" and units != "K":
-        print(array)
         return array * float(boltzmann.in_units("%s K^-1" % units)) * pyn.units.Unit(units)
     else:
         return array
@@ -214,24 +216,25 @@ def mp_make_plot(arg):
 
     """
     # Intro Debugging
-########################################################################################################################
-    fdbg_string = _dbg_string+"mp_make_plot: "
-    log_print("Generating a multiprocessed plot with args %s. [Process: %s]"%(arg,current_process().name),fdbg_string,"debug")
+    ########################################################################################################################
+    fdbg_string = _dbg_string + "mp_make_plot: "
+    log_print("Generating a multiprocessed plot with args %s. [Process: %s]" % (arg, current_process().name),
+              fdbg_string, "debug")
 
     # Main script
-########################################################################################################################
-    args,kwargs = arg # splitting the args and kwargs out of the tuple
-    for simulation in args[0]: # cycle through all of the output folders.
-        path = os.path.join(args[2],simulation)
+    ########################################################################################################################
+    args, kwargs = arg  # splitting the args and kwargs out of the tuple
+    for simulation in args[0]:  # cycle through all of the output folders.
+        path = os.path.join(args[2], simulation)
         snap = pyn.load(path)
-        #- Aligning the snap -#
+        # - Aligning the snap -#
         try:
             align_snapshot(snap)
         except MemoryError:
-            log_print("Ran out of memory",fdbg_string,"critical")
+            log_print("Ran out of memory", fdbg_string, "critical")
             exit()
-        make_plot(snap,args[3],end_file=os.path.join(args[1],"Image_%s.png"%(simulation.replace("output_",""))),**kwargs)
-
+        make_plot(snap, args[3], end_file=os.path.join(args[1], "Image_%s.png" % (simulation.replace("output_", ""))),
+                  **kwargs)
 
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -365,7 +368,7 @@ def make_plot(snapshot,
     else:
         kwargs["units"] = pyn.units.Unit(kwargs["units"])
 
-    if isinstance(time_units,str):
+    if isinstance(time_units, str):
         time_units = pyn.units.Unit(time_units)
     # PLOTTING #
     ########################################################################################################################
@@ -377,22 +380,25 @@ def make_plot(snapshot,
     numerical_width = float(pyn.units.Unit(kwargs["width"]).in_units(length_units))
     extent = [-numerical_width / 2, numerical_width / 2, -numerical_width / 2, numerical_width / 2]
 
-    #- Getting the data -#
-    print(kwargs)
+    # - Getting the data -#
     image_array = generate_image_array(snapshot, qty, families=families, **kwargs)
-    print(image_array)
-    ### Managing colors ###
+
+
+    #- MANAGING COLORS AND VMIN/VMAX
+
     if not vmin:
         vmin = np.amin(image_array)
     if not vmax:
         vmax = np.amax(image_array)
 
     if log:
-        color_norm = mpl.colors.LogNorm(vmin=vmin,vmax=vmax)
+        vmin = (vmin if vmin>0 else np.amin(image_array[np.where(image_array > 0)]))
+        color_norm = mpl.colors.LogNorm(vmin=vmin, vmax=vmax,clip=True)
     else:
-        color_norm = mpl.colors.Normalize(vmin=vmin,vmax=vmax)
+        color_norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax,clip=True)
+
     ### making the plot ###
-    image = axes.imshow(image_array, origin="lower", cmap=kwargs["cmap"], extent=extent,norm=color_norm)
+    image = axes.imshow(image_array, origin="lower", cmap=kwargs["cmap"], extent=extent, norm=color_norm)
 
     ### Managing the colorbar ###
     plt.colorbar(image, label=r"$\mathrm{%s} \;\left[\mathrm{%s}\right]$" % (fancy_qty(qty), kwargs["units"].latex()))
@@ -425,8 +431,9 @@ def make_plot(snapshot,
     else:
         plt.show()
 
+
 # Functions for generating profiles
-#----------------------------------------------------------------------------------------------------------------------#
+# ----------------------------------------------------------------------------------------------------------------------#
 def make_profile_plot(snapshot,
                       qty,
                       Lambda=None,
@@ -462,20 +469,20 @@ def make_profile_plot(snapshot,
     """
     # Intro Debugging
     ####################################################################################################################
-    fdbg_string = "%smake_profile_plot: "%_dbg_string
-    log_print("Generating %s profile plot for snapshot %s."%(qty,snapshot),fdbg_string,"debug")
+    fdbg_string = "%smake_profile_plot: " % _dbg_string
+    log_print("Generating %s profile plot for snapshot %s." % (qty, snapshot), fdbg_string, "debug")
 
     # Managing profile kwargs
     ####################################################################################################################
-    _prof_kwargs = {} # these are the kwargs we will pass in
-    for key,value in __pynbody_profile_defaults.items():
-        if key in kwargs: # the user included it in their list.
+    _prof_kwargs = {}  # these are the kwargs we will pass in
+    for key, value in __pynbody_profile_defaults.items():
+        if key in kwargs:  # the user included it in their list.
             _prof_kwargs[key] = kwargs[key]
             del kwargs[key]
-        else: # not included in the inputted kwargs. We check for None, then add.
+        else:  # not included in the inputted kwargs. We check for None, then add.
             if value != None:
                 _prof_kwargs[key] = value
-            else: # These were set to nonetype anyways.
+            else:  # These were set to nonetype anyways.
                 pass
 
     if "title" in kwargs:
@@ -486,39 +493,40 @@ def make_profile_plot(snapshot,
     # Creating the profile in question
     ####################################################################################################################
     if not profile:
-        #- working out which families to generate the profile for -#
+        # - working out which families to generate the profile for -#
         if "family" in kwargs:
             # We have a family kwargs
             try:
-                family = [snap_fam for snap_fam in snapshot.families() if snap_fam.name == kwargs['family']][0] # get the family
+                family = [snap_fam for snap_fam in snapshot.families() if snap_fam.name == kwargs['family']][
+                    0]  # get the family
             except KeyError:
                 # There was no family of this type.
-                make_error(ValueError,fdbg_string,"Failed to recognize family input %s"%(kwargs["family"]))
+                make_error(ValueError, fdbg_string, "Failed to recognize family input %s" % (kwargs["family"]))
                 return None
 
-            #- creating the profile -#
-            profile = pyn.analysis.profile.Profile(snapshot[family],**_prof_kwargs)
+            # - creating the profile -#
+            profile = pyn.analysis.profile.Profile(snapshot[family], **_prof_kwargs)
             del kwargs["family"]
         else:
-            #- creating the profile -#
-            profile = pyn.analysis.profile.Profile(snapshot,**_prof_kwargs)
+            # - creating the profile -#
+            profile = pyn.analysis.profile.Profile(snapshot, **_prof_kwargs)
 
     # Attempting to generate plotted items
     ####################################################################################################################
-    #- grabbing the x array -#
-    x = profile["rbins"] # grabbing the x-array
+    # - grabbing the x array -#
+    x = profile["rbins"]  # grabbing the x-array
 
     if "units_x" in kwargs:
         x = x.in_units(kwargs["units_x"])
         del kwargs["units_x"]
     else:
         x = x.in_units(CONFIG["units"]["default_length_unit"])
-    #- grabbing the y array -#
+    # - grabbing the y array -#
     try:
         # We need to fix this array to manage possible unit errors #
-        y = fix_array_u(profile[qty],qty,(__quantities[qty]["unit"] if "unit_y" not in kwargs else kwargs["unit_y"]))
+        y = fix_array_u(profile[qty], qty, (__quantities[qty]["unit"] if "unit_y" not in kwargs else kwargs["unit_y"]))
     except KeyError:
-        make_error(ValueError,fdbg_string,"The quantity %s is not a valid quantity for this profile..."%qty)
+        make_error(ValueError, fdbg_string, "The quantity %s is not a valid quantity for this profile..." % qty)
         return None
 
     if qty != "temp":
@@ -530,8 +538,8 @@ def make_profile_plot(snapshot,
 
     # Setting up plotting
     ####################################################################################################################
-    #- grabbing kwargs -#
-    #-- getting x-log information --#
+    # - grabbing kwargs -#
+    # -- getting x-log information --#
     if "logx" in kwargs and kwargs["logx"] == True:
         logx = True
         del kwargs["logx"]
@@ -539,9 +547,9 @@ def make_profile_plot(snapshot,
         logx = False
         del kwargs["logx"]
     else:
-        logx=False
+        logx = False
 
-    #-- getting y-log information --#
+    # -- getting y-log information --#
     if "logy" in kwargs and kwargs["logy"] == True:
         logy = True
         del kwargs["logy"]
@@ -551,7 +559,7 @@ def make_profile_plot(snapshot,
     else:
         logy = False
 
-    #- Finding plotting function -#
+    # - Finding plotting function -#
     if logx and logy:
         plt_func = plt.loglog
     elif logx:
@@ -563,26 +571,26 @@ def make_profile_plot(snapshot,
 
     # Plotting
     ####################################################################################################################
-    #- creating the figure -#
+    # - creating the figure -#
     fig = plt.figure(figsize=tuple(CONFIG["Visualization"]["default_figure_size"]))
     axes = fig.add_subplot(111)
 
-    #- creating the actual plot -#
-    plt_func(x,y,**kwargs,label=__quantities[qty]["fancy"])
+    # - creating the actual plot -#
+    plt_func(x, y, **kwargs, label=__quantities[qty]["fancy"])
 
     ##-managing the lambda function -##
-    if Lambda != None: # there is a lambda function
-        plt_func(x,Lambda(x),label=(Lambda_label if Lambda_label else ""))
+    if Lambda != None:  # there is a lambda function
+        plt_func(x, Lambda(x), label=(Lambda_label if Lambda_label else ""))
 
-    #- managing text -#
-    axes.set_xlabel(r"Radius [$%s$]"%(x.units.latex())) # setting the x axis
-    axes.set_ylabel(r"%s [$%s$]"%(__quantities[qty]["fancy"],y.units.latex()))
+    # - managing text -#
+    axes.set_xlabel(r"Radius [$%s$]" % (x.units.latex()))  # setting the x axis
+    axes.set_ylabel(r"%s [$%s$]" % (__quantities[qty]["fancy"], y.units.latex()))
     axes.set_title(title)
 
-    #- adding a legend -#
+    # - adding a legend -#
     plt.legend()
 
-    #- adding the grid -#
+    # - adding the grid -#
     plt.grid()
 
     # Saving
@@ -599,6 +607,8 @@ def make_profile_plot(snapshot,
         gc.collect()
     else:
         plt.show()
+
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Functions -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -659,9 +669,9 @@ def generate_image_sequence(simulation_directory, qty, multiprocess=True, nproc=
         # - Creating the partition -#
         partition = split(output_directories, nproc)  # Maximally efficient splitting for the partition.
 
-        arg = [([partition[i],output_directory,simulation_directory,qty],kwargs) for i in range(len(partition))]
+        arg = [([partition[i], output_directory, simulation_directory, qty], kwargs) for i in range(len(partition))]
         with ProcessPoolExecutor() as executor:
-            executor.map(mp_make_plot,arg)
+            executor.map(mp_make_plot, arg)
 
     else:
         for output_direct in output_directories:  # we are plotting each of these.
@@ -676,16 +686,16 @@ def generate_image_sequence(simulation_directory, qty, multiprocess=True, nproc=
             make_plot(snapshot, qty, end_file=os.path.join(output_directory, "Image_%s.png" % snap_number), save=True,
                       **kwargs)
 
+
 # Functions for generating profiles
-#----------------------------------------------------------------------------------------------------------------------#
+# ----------------------------------------------------------------------------------------------------------------------#
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -----------------------------------------------------   MAIN   --------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT", level=10)
-    data = pyn.load("/home/ediggins/PyCS/initial_conditions/Col_5.dat")
-    print(data)
+    data = pyn.load("/home/ediggins/PyCS/initial_conditions/Col_1-1_0.dat")
     data.g["smooth"] = pyn.sph.smooth(data.g)
     data.g["rho"] = pyn.sph.rho(data.g)
-    make_plot(data,"temp",width="12000 kpc",save=False,log=False)
+    make_plot(data,"temp",save=False,width="12000 kpc",cmap=plt.cm.inferno,av_z=True,resolution=500)
