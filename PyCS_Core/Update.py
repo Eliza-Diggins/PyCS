@@ -41,19 +41,19 @@ def update_dict(master: dict, local: dict) -> dict:
     """
     master_keys, local_keys = master.keys(), local.keys()  # grab all of the keys
 
-    for master_key in list(master_keys):  # cycle through each of the master keys
-        if master_key not in list(local_keys):
+    for local_key in list(local_keys):  # cycle through each of the master keys
+        if local_key not in list(master_keys):
             ### The master key isn't yet in the local keys, so we need to add it. ###
-            local[master_key] = master[master_key]
+            master[local_key] = local[local_key]
         else:
             ### the master key is in the local key. We need to check if they share a setting.
-            if isinstance(local[master_key], dict):
+            if isinstance(master[local_key], dict):
                 ### resulting element is another dict, so we need to cycle again.
-                local[master_key] = update_dict(master[master_key], local[master_key])
+                master[local_key] = update_dict(local[local_key], master[local_key])
             else:
                 ### the resulting element is already set so we leave it
                 pass
-    return local
+    return master
 
 
 def make_files_recur(location: str, file: dict, level=0):
@@ -214,7 +214,6 @@ if __name__ == '__main__':
                 temp_config_master = t.load(file)
             with open(os.path.join(__local_configs_path,master_config),"r+") as file:
                 temp_config_local = t.load(file)
-
             # resolved config #
             resolved_config = update_dict(temp_config_master, temp_config_local)
 
@@ -230,11 +229,13 @@ if __name__ == '__main__':
     # --------------------------------------------------------#
     from PyCS_Core.Install import install_files
 
-    installation_config = toml.load(os.path.join(__local_configs_path, "CONFIG.ini"))
+    with open(os.path.join(__local_configs_path, "CONFIG.ini"),"r+") as file:
+        installation_config = t.load(file)
+
     print("%sGenerating new directories of the installation." % fdbg_string, end=" ")
     make_files(__installation_directory)
     print(" [" + Fore.CYAN + Style.BRIGHT + "DONE" + Style.RESET_ALL + "]")
 
     os.remove(os.path.join(__local_configs_path, "CONFIG.ini"))
     with open(os.path.join(__local_configs_path, "CONFIG.ini"), "w+") as file:
-        toml.dump(installation_config, file)
+        t.dump(installation_config, file)
