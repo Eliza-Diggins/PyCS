@@ -13,7 +13,7 @@ sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 import argparse
 from PyCS_Core.Configuration import read_config, _configuration_path
 from PyCS_Core.Logging import set_log, log_print
-from PyCS_Analysis.Visualization import make_plot
+from PyCS_Analysis.Images import make_plot
 from PyCS_Analysis.Analysis_Utils import align_snapshot
 from PyCS_Core.PyCS_Errors import *
 import pathlib as pt

@@ -18,8 +18,8 @@ import pynbody as pyn
 import matplotlib.pyplot as plt
 import numpy as np
 from PyCS_System.text_utils import file_select,print_title
-from PyCS_System.file_management import upload_files,download_files
-from PyCS_Analysis.Visualization import make_profile_plot,make_plot
+from PyCS_Analysis.Images import make_plot
+from PyCS_Analysis.Profiles import make_profile_plot,make_profiles_plot
 from PyCS_Analysis.Analysis_Utils import split_binary_collision,find_gas_COM
 import time
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -66,6 +66,46 @@ __profile_config = {
         "family":"gas"
     }
 }
+__multi_profile_config = [
+    {"name":"densities",
+     "kwargs":{"logx":True,"logy":True,"title":"Cluster Density Profiles"},
+     "dat":[
+         {"quantity":"density",
+          "q_kwargs":{"family":"dm",
+                      "color":"black",
+                      "ls":"-",
+                      "label":r"$\rho_{\mathrm{dm}}(r)$"}
+          },
+         {"quantity": "density",
+           "q_kwargs": {"color":"blue",
+                        "ls":"-",
+                        "label":r"$\rho_{\mathrm{tot}}(r)$"}},
+         {"quantity": "density",
+            "q_kwargs": {"family": "gas",
+                         "color":"red",
+                         "ls":"-",
+                         "label":r"$\rho_{\mathrm{gas}}(r)$"}}
+     ]},
+{"name":"masses",
+     "kwargs":{"logx":True,"logy":True,"title":"Cluster Mass Profiles"},
+     "dat":[
+         {"quantity":"mass_enc",
+          "q_kwargs":{"family":"dm",
+                      "color":"black",
+                      "ls":"-",
+                      "label":r"$M_{\mathrm{dm}}(<r)$"}
+          },
+         {"quantity": "mass_enc",
+           "q_kwargs": {"color":"blue",
+                        "ls":"-",
+                        "label":r"$M_{\mathrm{tot}}(<r)$"}},
+         {"quantity": "mass_enc",
+            "q_kwargs": {"family": "gas",
+                         "color":"red",
+                         "ls":"-",
+                         "label":r"$M_{\mathrm{gas}}(<r)$"}}
+     ]}
+]
 
 __line_config = {
     "lw":2,
@@ -199,6 +239,14 @@ if __name__ == '__main__':
                 **value,
                 **__line_config
             )
+        for plot in __multi_profile_config:
+            make_profiles_plot(
+                snapshot,
+                plot["dat"],
+                save=True,
+                end_file=save_location%plot["name"],
+                **plot["kwargs"]
+            )
     else:
         #- This is not a binary, so we pass through as usual.
         save_location = os.path.join(report_dir,report_name,"%s_%s.png")
@@ -212,6 +260,14 @@ if __name__ == '__main__':
                     end_file=save_location%(key,id),
                     **value,
                     **__line_config
+                )
+            for plot in __multi_profile_config:
+                make_profiles_plot(
+                    subsnap,
+                    plot["dat"],
+                    save=True,
+                    end_file=save_location %(plot["name"],id),
+                    **plot["kwargs"]
                 )
     # Adding Images
     ####################################################################################################################

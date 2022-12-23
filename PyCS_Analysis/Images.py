@@ -1,7 +1,7 @@
 """
 
-        PyCS Analysis Utils for common use
-
+    Functions specifically tailored for creating, manipulating, and editing simulation images.
+            Written by: Eliza Diggins
 """
 ### Imports ###
 # adding the system path to allow us to import the important modules
@@ -9,7 +9,6 @@ import os
 import sys
 import pathlib as pt
 import numpy as np
-import copy
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
 import pynbody as pyn
@@ -59,13 +58,6 @@ __pynbody_image_defaults = {
     "resolution": CONFIG["Visualization"]["Images"]["default_resolution"],
     "width": CONFIG["Visualization"]["Images"]["default_width"]
 } # Kwargs to pass into pyn.plot.sph.image
-__pynbody_profile_defaults = {
-    "ndim": CONFIG["analysis"]["profiles"]["profile_ndim"],
-    "nbins": CONFIG["analysis"]["profiles"]["nbins"],
-    "type": CONFIG["analysis"]["profiles"]["type"],
-    "rmin": None,
-    "rmax": None
-} # Kwargs to pass through pyn.analysis.profile.Profile
 
 #---# QUANTITY SPECIFIC DEFAULTS #-------------------------------------------------------------------------------------#
 #   These dictionaries carry kwargs specific to each quantity that gets passed into either the profiles or
@@ -92,34 +84,9 @@ __quantities = {
         "fancy": "Temperature",
         "families": ["gas"]
     },
-    "density": {
-        "unit": CONFIG["units"]["default_density_unit"],
-        "fancy": "Density",
-        "families": ["gas", "stars", "dm"]
-    },
     "rho": {
         "unit": CONFIG["units"]["default_density_unit"],
         "fancy": "Density",
-        "families": ["gas"]
-    },
-    "mass_enc": {
-        "unit": CONFIG["units"]["default_mass_unit"],
-        "fancy": "Enclosed Mass",
-        "families": ["gas", "stars", "dm"]
-    },
-    "dyntime": {
-        "unit": "Myr",
-        "fancy": "Dynamical Time",
-        "families": ["gas", "stars", "dm"]
-    },
-    "g_spherical": {
-        "unit": "m s^-2",
-        "fancy": "Spherical Potential",
-        "families": ["gas", "stars", "dm"]
-    },
-    "p": {
-        "unit": "N m^-2",
-        "fancy": "Pressure",
         "families": ["gas"]
     }
 }
@@ -178,25 +145,6 @@ def fix_array(array, qty, units):
     else:
         return array
 
-
-def fix_array_u(array, qty, units):
-    """
-    Run on all outputting arrays using the fixed units and the quantity. This can be used to correct for issues in the array ahead of time.
-    **UNIT-ED**
-    Parameters
-    ----------
-    array: The array to fix.
-    qty: The quantity to use.
-    units: The units that we actually want to use.
-
-    Returns: fixed array.
-    -------
-
-    """
-    if qty == "temp" and units != "K":
-        return array * float(boltzmann.in_units("%s K^-1" % units)) * pyn.units.Unit(units)
-    else:
-        return array
 
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -431,184 +379,6 @@ def make_plot(snapshot,
     else:
         plt.show()
 
-
-# Functions for generating profiles
-# ----------------------------------------------------------------------------------------------------------------------#
-def make_profile_plot(snapshot,
-                      qty,
-                      Lambda=None,
-                      Lambda_label=None,
-                      profile=None,
-                      save=CONFIG["Visualization"]["default_figure_save"],
-                      end_file=CONFIG["system"]["directories"]["figures_directory"],
-                      **kwargs):
-    """
-    Plots the ``qty`` profile of the input ``snapshot``. User can select an additional ``Lambda`` and ``Lambda_label`` to
-    overlay on the plot.
-    Parameters
-    ----------
-    profile: (*optional*) Provide a profile to avoid recalculating in repeated runs.
-
-    snapshot: The snapshot to analyze.
-
-    qty: The quantity to plot.
-
-    Lambda: (*optional*) Additional lambda function to overlay. Should be a function of **default** length units.
-
-    Lambda_label: (*optional*) The label to assign to the ``Lambda`` input.
-
-    save: True to save, False to show.
-
-    end_file: The filename and path to which the figure should be saved.
-
-    kwargs: additional kwargs for pyn.analysis.profile.Profile and plt.plot.
-
-    Returns: None
-    -------
-
-    """
-    # Intro Debugging
-    ####################################################################################################################
-    fdbg_string = "%smake_profile_plot: " % _dbg_string
-    log_print("Generating %s profile plot for snapshot %s." % (qty, snapshot), fdbg_string, "debug")
-
-    # Managing profile kwargs
-    ####################################################################################################################
-    _prof_kwargs = {}  # these are the kwargs we will pass in
-    for key, value in __pynbody_profile_defaults.items():
-        if key in kwargs:  # the user included it in their list.
-            _prof_kwargs[key] = kwargs[key]
-            del kwargs[key]
-        else:  # not included in the inputted kwargs. We check for None, then add.
-            if value != None:
-                _prof_kwargs[key] = value
-            else:  # These were set to nonetype anyways.
-                pass
-
-    if "title" in kwargs:
-        title = kwargs["title"]
-        del kwargs["title"]
-    else:
-        title = ""
-    # Creating the profile in question
-    ####################################################################################################################
-    if not profile:
-        # - working out which families to generate the profile for -#
-        if "family" in kwargs:
-            # We have a family kwargs
-            try:
-                family = [snap_fam for snap_fam in snapshot.families() if snap_fam.name == kwargs['family']][
-                    0]  # get the family
-            except KeyError:
-                # There was no family of this type.
-                make_error(ValueError, fdbg_string, "Failed to recognize family input %s" % (kwargs["family"]))
-                return None
-
-            # - creating the profile -#
-            profile = pyn.analysis.profile.Profile(snapshot[family], **_prof_kwargs)
-            del kwargs["family"]
-        else:
-            # - creating the profile -#
-            profile = pyn.analysis.profile.Profile(snapshot, **_prof_kwargs)
-
-    # Attempting to generate plotted items
-    ####################################################################################################################
-    # - grabbing the x array -#
-    x = profile["rbins"]  # grabbing the x-array
-
-    if "units_x" in kwargs:
-        x = x.in_units(kwargs["units_x"])
-        del kwargs["units_x"]
-    else:
-        x = x.in_units(CONFIG["units"]["default_length_unit"])
-    # - grabbing the y array -#
-    try:
-        # We need to fix this array to manage possible unit errors #
-        y = fix_array_u(profile[qty], qty, (__quantities[qty]["unit"] if "unit_y" not in kwargs else kwargs["unit_y"]))
-    except KeyError:
-        make_error(ValueError, fdbg_string, "The quantity %s is not a valid quantity for this profile..." % qty)
-        return None
-
-    if qty != "temp":
-        if "units_y" in kwargs:
-            y = y.in_units(kwargs["units_y"])
-            del kwargs["units_y"]
-        else:
-            y = y.in_units(__quantities[qty]["unit"])
-
-    # Setting up plotting
-    ####################################################################################################################
-    # - grabbing kwargs -#
-    # -- getting x-log information --#
-    if "logx" in kwargs and kwargs["logx"] == True:
-        logx = True
-        del kwargs["logx"]
-    elif "logx" in kwargs:
-        logx = False
-        del kwargs["logx"]
-    else:
-        logx = False
-
-    # -- getting y-log information --#
-    if "logy" in kwargs and kwargs["logy"] == True:
-        logy = True
-        del kwargs["logy"]
-    elif "logy" in kwargs:
-        logy = False
-        del kwargs["logy"]
-    else:
-        logy = False
-
-    # - Finding plotting function -#
-    if logx and logy:
-        plt_func = plt.loglog
-    elif logx:
-        plt_func = plt.semilogx
-    elif logy:
-        plt_func = plt.semilogy
-    else:
-        plt_func = plt.plot
-
-    # Plotting
-    ####################################################################################################################
-    # - creating the figure -#
-    fig = plt.figure(figsize=tuple(CONFIG["Visualization"]["default_figure_size"]))
-    axes = fig.add_subplot(111)
-
-    # - creating the actual plot -#
-    plt_func(x, y, **kwargs, label=__quantities[qty]["fancy"])
-
-    ##-managing the lambda function -##
-    if Lambda != None:  # there is a lambda function
-        plt_func(x, Lambda(x), label=(Lambda_label if Lambda_label else ""))
-
-    # - managing text -#
-    axes.set_xlabel(r"Radius [$%s$]" % (x.units.latex()))  # setting the x axis
-    axes.set_ylabel(r"%s [$%s$]" % (__quantities[qty]["fancy"], y.units.latex()))
-    axes.set_title(title)
-
-    # - adding a legend -#
-    plt.legend()
-
-    # - adding the grid -#
-    plt.grid()
-
-    # Saving
-    #########################################################################################################################
-    if save:
-        plt.savefig(end_file)
-
-        del profile
-        axes.cla()
-        del axes
-        plt.figure().clear()
-        plt.clf()
-        plt.close('all')
-        gc.collect()
-    else:
-        plt.show()
-
-
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Functions -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -699,3 +469,4 @@ if __name__ == '__main__':
     data.g["smooth"] = pyn.sph.smooth(data.g)
     data.g["rho"] = pyn.sph.rho(data.g)
     make_plot(data,"temp",save=False,width="12000 kpc",cmap=plt.cm.inferno,av_z=True,resolution=500)
+
