@@ -18,7 +18,7 @@ from colorama import Fore, Style
 from matplotlib.pyplot import cm
 from PyCS_Core.PyCS_Errors import *
 from PyCS_System.SimulationMangement import get_simulation_qty
-from PyCS_Analysis.Visualization import generate_image_sequence
+from PyCS_Analysis.Images import generate_image_sequence
 import time
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
