@@ -296,7 +296,6 @@ if __name__ == '__main__':
         os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"], initial_condition_file))
     snapshot.g["smooth"] = pyn.sph.smooth(snapshot.g)
     snapshot.g["rho"] = pyn.sph.rho(snapshot.g)
-    print(int(2 * np.amax(snapshot["pos"][:, 0].in_units("kpc"))))
     save_location = os.path.join(report_dir, report_name, "I-%s.png")
 
     #- Generating the temperature image -#

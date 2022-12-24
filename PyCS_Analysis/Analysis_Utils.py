@@ -67,7 +67,6 @@ def find_gas_COM(snapshot,cutoff_parameter=0.5):
     sub1,sub2 = sub[sub["pos"][:,0] <=0],sub[sub["pos"][:,0] > 0] # split the sub into two parts.
 
     # Returning
-    print(sub1,sub2)
     coms = (pyn.analysis.halo.center_of_mass(sub1),pyn.analysis.halo.center_of_mass(sub2))
     log_print("Identified the centers of mass to be %s and %s."%(coms[0],coms[1]),fdbg_string,"debug")
     return coms
@@ -209,7 +208,6 @@ def split_binary_collision(snapshot):
     ####################################################################################################################
     for id,snap in enumerate(snaps):
         snap["pos"] -= centers_of_mass[id]
-    print(snaps)
     return snaps
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -----------------------------------------------------   MAIN   --------------------------------------------------------#

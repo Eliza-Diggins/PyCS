@@ -325,7 +325,6 @@ def make_profiles_plot(snapshot,
         if "units_x" in kwargs:
             quantity["q_kwargs"]["units_x"] = kwargs["units_x"]
 
-    print(quantities)
     # Creating the figure
     ####################################################################################################################
     fig = plt.figure(figsize=tuple(CONFIG["Visualization"]["default_figure_size"]))
