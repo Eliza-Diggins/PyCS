@@ -41,15 +41,15 @@ def update_dict(master: dict, local: dict) -> dict:
     """
     master_keys, local_keys = master.keys(), local.keys()  # grab all of the keys
 
-    for local_key in list(local_keys):  # cycle through each of the master keys
-        if local_key not in list(master_keys):
+    for master_key in list(master_keys):  # cycle through each of the master keys
+        if master_key in list(local_keys):
             ### The master key isn't yet in the local keys, so we need to add it. ###
-            master[local_key] = local[local_key]
+            master[master_key] = local[master_key]
         else:
             ### the master key is in the local key. We need to check if they share a setting.
-            if isinstance(master[local_key], dict):
+            if isinstance(master[master_key], dict):
                 ### resulting element is another dict, so we need to cycle again.
-                master[local_key] = update_dict(local[local_key], master[local_key])
+                master[master_key] = update_dict(master[master_key], local[master_key])
             else:
                 ### the resulting element is already set so we leave it
                 pass
@@ -177,12 +177,12 @@ if __name__ == '__main__':
     # The installation directory has been located. We now update.
     ####################################################################################################################
     os.chdir(str(pt.Path(os.path.realpath(__file__)).parents[1]))  # moving up to the git repo level
-
+    """
     print("%sFetching update from git." % fdbg_string)
     os.system("git fetch --all")  # Fetch all the updates.
     os.system("git reset --hard origin/master")  # Resetting the system
     print("%sUpdated the code base." % fdbg_string)
-
+    """
     # Managing configs
     ####################################################################################################################
     __local_configs_path = os.path.join(__installation_directory, "bin", "configs")
