@@ -42,8 +42,10 @@ def update_dict(master: dict, local: dict) -> dict:
     master_keys, local_keys = master.keys(), local.keys()  # grab all of the keys
 
     for master_key in list(master_keys):  # cycle through each of the master keys
-        if isinstance(master[master_key],dict):
+        if isinstance(master[master_key],dict) and master_key in local:
             master[master_key] = update_dict(master[master_key], local[master_key])
+        elif isinstance(master[master_key],dict) and master_key not in local:
+            pass
         else:
             if master_key in list(local_keys):
                 ### There is a local match ###
