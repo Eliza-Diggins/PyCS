@@ -42,16 +42,13 @@ def update_dict(master: dict, local: dict) -> dict:
     master_keys, local_keys = master.keys(), local.keys()  # grab all of the keys
 
     for master_key in list(master_keys):  # cycle through each of the master keys
-        if master_key in list(local_keys):
-            ### The master key isn't yet in the local keys, so we need to add it. ###
-            master[master_key] = local[master_key]
+        if isinstance(master[master_key],dict):
+            master[master_key] = update_dict(master[master_key], local[master_key])
         else:
-            ### the master key is in the local key. We need to check if they share a setting.
-            if isinstance(master[master_key], dict):
-                ### resulting element is another dict, so we need to cycle again.
-                master[master_key] = update_dict(master[master_key], local[master_key])
+            if master_key in list(local_keys):
+                ### There is a local match ###
+                master[master_key] = local[master_key]
             else:
-                ### the resulting element is already set so we leave it
                 pass
     return master
 
