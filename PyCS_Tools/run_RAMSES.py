@@ -11,9 +11,9 @@ import pathlib as pt
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 import argparse
 from PyCS_Core.Configuration import read_config, _configuration_path
-from PyCS_Core.Logging import set_log, log_print, make_error
+from PyCS_Core.Logging import set_log, log_print
 from PyCS_System.text_utils import file_select,print_title
-from PyCS_System.SpecConfigs import read_RAMSES_config, read_batch_config, write_nml,write_slurm_script
+from PyCS_System.SpecConfigs import read_RAMSES_config, write_nml,write_slurm_script
 import pathlib as pt
 import toml
 from datetime import datetime

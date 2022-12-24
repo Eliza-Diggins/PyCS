@@ -157,11 +157,16 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
 
         log_print("Found name option: %s (in %s)" % (name, output_location), fdbg_string, "info")
 
-    ### Generating the nml file ###
+    # GENERATING THE NML FILE
+    ####################################################################################################################
+    #- Fetching disabled values -#
+    disabled_headers = [str(key).replace("enable_","") for key,value in nml_settings["CORE"]["Enabled"].items() if value[0]=="false"]
+
+    #- Writing the NML -#
     with open(os.path.join(output_location, name), "w+") as file:  # Creating the file.
         # Writing the nml file #
         for header in nml_settings:  # Cycle through each of the nml headers
-            if header != "CORE":  # we skip the "CORE" setting as its just for our usage.
+            if header != "CORE" and header not in disabled_headers:  # we skip the "CORE" setting as its just for our usage.
                 file.write("&%s\n" % header)  # Write the header
 
                 ### Writing the sub options ###
