@@ -177,12 +177,12 @@ if __name__ == '__main__':
     # The installation directory has been located. We now update.
     ####################################################################################################################
     os.chdir(str(pt.Path(os.path.realpath(__file__)).parents[1]))  # moving up to the git repo level
-    """
+
     print("%sFetching update from git." % fdbg_string)
     os.system("git fetch --all")  # Fetch all the updates.
     os.system("git reset --hard origin/master")  # Resetting the system
     print("%sUpdated the code base." % fdbg_string)
-    """
+
     # Managing configs
     ####################################################################################################################
     __local_configs_path = os.path.join(__installation_directory, "bin", "configs")
