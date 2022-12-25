@@ -23,7 +23,7 @@ from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import current_process
 import matplotlib as mpl
 import gc
-
+from PIL import Image
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -93,6 +93,7 @@ __quantities = {
 
 #---# PHYSICAL CONSTANTS #---------------------------------------------------------------------------------------------#
 boltzmann = 1.380649e-23 * pyn.units.Unit("J K^-1")  # Defining the Boltzmann constant
+critical_density = 130 * pyn.units.Unit("Msol kpc^-3") # critical density of the universe.
 
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -183,7 +184,39 @@ def mp_make_plot(arg):
             exit()
         make_plot(snap, args[3], end_file=os.path.join(args[1], "Image_%s.png" % (simulation.replace("output_", ""))),
                   **kwargs)
+def mp_make_gas_dm_plot(arg):
+    """
+    Multiprocessing make bary/dm plot function. The args parameter should have the format
 
+    arg = ([simulations:list,output_directory,simulation_directory],{**kwargs})
+    Parameters
+    ----------
+    arg: The args and kwargs for the plotting process.
+
+    Returns: None
+    -------
+
+    """
+    # Intro Debugging
+    ########################################################################################################################
+    fdbg_string = _dbg_string + "mp_make_gas_dm_plot: "
+    log_print("Generating a multiprocessed plot with args %s. [Process: %s]" % (arg, current_process().name),
+              fdbg_string, "debug")
+
+    # Main script
+    ########################################################################################################################
+    args, kwargs = arg  # splitting the args and kwargs out of the tuple
+    for simulation in args[0]:  # cycle through all of the output folders.
+        path = os.path.join(args[2], simulation)
+        snap = pyn.load(path)
+        # - Aligning the snap -#
+        try:
+            align_snapshot(snap)
+        except MemoryError:
+            log_print("Ran out of memory", fdbg_string, "critical")
+            exit()
+        make_gas_dm_image(snap, end_file=os.path.join(args[1], "Image_%s.png" % (simulation.replace("output_", ""))),
+                  **kwargs)
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --------------------------------------------------- Sub-Functions -----------------------------------------------------#
@@ -379,6 +412,118 @@ def make_plot(snapshot,
     else:
         plt.show()
 
+def make_gas_dm_image(snapshot,
+                      save=CONFIG["Visualization"]["default_figure_save"],
+                      end_file = None,
+                      vmin=critical_density,
+                      vmax=None,
+                      colors=None,
+                      time_units = pyn.units.Unit(CONFIG["units"]["default_time_unit"]),
+                      length_units=CONFIG["units"]["default_length_unit"],
+                      **kwargs):
+    # Intro debugging
+    ####################################################################################################################
+    fdbg_string = "%smake_gas_dm_image: "%_dbg_string
+    log_print("Generating gas/dm image for snapshot %s."%snapshot,fdbg_string,"debug")
+
+    # Setup
+    ####################################################################################################################
+    #- managing colors -#
+    if not colors:
+        colors = ["aqua","fuchsia"]
+
+    colors = [mpl.colors.to_rgb(i) for i in colors]
+
+    #- Managing other settings -#
+    for key, value in __pynbody_image_defaults.items():  # cycle through all of the defaults
+        if key not in kwargs and key != "cmap":
+            kwargs[key] = value
+        else:
+            pass
+
+
+    if not "resolution" in kwargs:
+        kwargs["resolution"]= CONFIG["Visualization"]["Images"]["default_resolution"]
+    #- fetching units -#
+    if not "units" in kwargs:
+        kwargs["units"] = set_units("rho")
+    else:
+        kwargs["units"] = pyn.units.Unit(kwargs["units"])
+
+    if isinstance(time_units, str):
+        time_units = pyn.units.Unit(time_units)
+    #- Fetching the necessary images -#
+
+    dark_matter_array = generate_image_array(snapshot,"rho",families=["dm"],**kwargs)
+    baryonic_array = generate_image_array(snapshot,"rho",families=["gas"],**kwargs)
+
+    #- creating norms -#
+    if not vmax:
+        vmax_dm,vmax_gas = np.amax(dark_matter_array),np.amax(baryonic_array) # grabbing vmins and vmaxs.
+    else:
+        vmax_dm,vmax_gas = vmax,vmax
+    # setting vmin
+    ##- Recognize that if vmin is united, then we have to change to correct units. if no, leave as float.
+    try:
+        vmin = vmin.in_units(kwargs["units"])
+    except Exception:
+        vmin = vmin # we just set trivially.
+    print(vmin,vmax_dm,vmax_gas)
+    ##- Generating the norms -##
+    norm_dm,norm_gas = mpl.colors.LogNorm(vmin=vmin,vmax=vmax_dm,clip=True),mpl.colors.LogNorm(vmin=vmin,vmax=vmax_gas,clip=True)
+
+    #- generating the extent -#
+    numerical_width = float(pyn.units.Unit(kwargs["width"]).in_units(length_units))
+    extent = [-numerical_width / 2, numerical_width / 2, -numerical_width / 2, numerical_width / 2]
+    # Generating the images
+    ####################################################################################################################
+
+    #- Creating the empty image arrays (RGBA) -#
+    dm_im,gas_im = np.zeros((kwargs["resolution"],kwargs["resolution"],4)),np.zeros((kwargs["resolution"],kwargs["resolution"],4))
+
+    #- Setting colors -#
+    dm_im[:,:,:-1],gas_im[:,:,:-1] = tuple(colors) # assign the RGB segments of the arrays to the colors.
+    #- Setting alpha -#
+    dm_im[:,:,3],gas_im[:,:,3] = norm_dm(dark_matter_array),norm_gas(baryonic_array) # generating the image arrays.
+
+    dm_image,gas_image = Image.fromarray(np.uint8(dm_im*255)),Image.fromarray(np.uint8(gas_im*255))
+    final_image = Image.alpha_composite(dm_image,gas_image)
+
+    #- cleaning up -#
+    del baryonic_array,dark_matter_array,dm_image,gas_image,dm_im,gas_im
+    gc.collect()
+    # Plotting
+    ####################################################################################################################
+    #- Making the figure -#
+    fig = plt.figure(figsize=tuple(CONFIG["Visualization"]["default_figure_size"]))
+    axes = fig.add_subplot(111)
+
+    axes.imshow(final_image,extent=extent)
+
+    # - TITLES -#
+    plt.title(r"$t = \mathrm{%s\;%s}$" % (
+        np.round(snapshot.properties["time"].in_units(time_units), decimals=2),
+        time_units.latex()), fontsize=10)
+
+    plt.suptitle("Comparative Distribution of Dark Matter and Baryonic Matter",y=0.93)
+
+    # - AXES LABELS -#
+    axes.set_ylabel(r"$y\;\;\left[\mathrm{%s}\right]$" % (pyn.units.Unit(length_units).latex()))
+    axes.set_xlabel(r"$x\;\;\left[\mathrm{%s}\right]$" % (pyn.units.Unit(length_units).latex()))
+    axes.set_facecolor("black")
+    if save:
+        plt.savefig(end_file)
+
+        axes.cla()
+        del axes
+        plt.figure().clear()
+        plt.clf()
+        plt.close('all')
+        gc.collect()
+    else:
+        plt.show()
+
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Functions -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -456,7 +601,78 @@ def generate_image_sequence(simulation_directory, qty, multiprocess=True, nproc=
             make_plot(snapshot, qty, end_file=os.path.join(output_directory, "Image_%s.png" % snap_number), save=True,
                       **kwargs)
 
+def generate_dm_baryon_image_sequence(simulation_directory, multiprocess=True, nproc=3, **kwargs):
+    """
+    Generates a sequence of baryon/dm images for the simulation using the given simulation.
+    Parameters
+    ----------
+    simulation_directory: The location of the simulation datafiles.
+    kwargs: The additional kwargs to pass to the plotting system.
 
+    Returns
+    -------
+
+    """
+    # DEBUGGING
+    ########################################################################################################################
+    fdbg_string = _dbg_string + "generate_dm_baryon_image_sequence: "
+    log_print("Generating dm/baryon image sequence for %s with the following kwargs: %s" % (simulation_directory, kwargs),
+              fdbg_string, "debug")
+
+    # SETUP
+    ########################################################################################################################
+    # - File Management -#
+    if not os.path.isdir(simulation_directory):  # Checking that the simulation directory exists
+        make_error(OSError, fdbg_string, "The simulation directory %s doesn't appear to exist." % simulation_directory)
+
+    ##- Getting the simulation name -##
+    try:
+        simulation_name = get_simulation_qty("SimulationName", {"SimulationLocation": simulation_directory})[0]
+    except Exception:
+        ## Something went wrong ##
+        simulation_name = pt.Path(simulation_directory).name
+
+    ##- Creating the output file set -##
+    if not "av_z" in kwargs:  # We need to use av_z for the naming convention so we add it if it doesn't exist.
+        kwargs["av_z"] = False
+
+    output_directory = os.path.join(CONFIG["system"]["directories"]["figures_directory"], simulation_name,
+                                    "%s-(I-%s)" % ("DM-B", kwargs["av_z"]), datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))
+
+    if not os.path.exists(output_directory):
+        pt.Path.mkdir(pt.Path(output_directory), parents=True)
+    ##- Debugging -##
+    log_print("Saving figures to %s." % (output_directory), fdbg_string, "debug")
+
+    ### Getting snapshot directories ###
+    output_directories = [dir for dir in os.listdir(simulation_directory) if
+                          "output" in dir]  # grab all of the output directories.
+    log_print("Found %s figures to plot." % len(output_directories), fdbg_string, "debug")
+
+    # Plotting
+    ########################################################################################################################
+    if multiprocess and nproc > 1:
+        # MULTIPROCESSING
+        ####################################################################################################################
+        # - Creating the partition -#
+        partition = split(output_directories, nproc)  # Maximally efficient splitting for the partition.
+
+        arg = [([partition[i], output_directory, simulation_directory], kwargs) for i in range(len(partition))]
+        with ProcessPoolExecutor() as executor:
+            executor.map(mp_make_gas_dm_plot, arg)
+
+    else:
+        for output_direct in output_directories:  # we are plotting each of these.
+            snap_number = output_direct.replace("output_", "")  # this is just the snapshot number
+
+            # - Cleanup -#
+            snapshot = pyn.load(os.path.join(simulation_directory, output_direct))
+
+            align_snapshot(snapshot)
+
+            # - Plotting -#
+            make_gas_dm_image(snapshot, end_file=os.path.join(output_directory, "Image_%s.png" % snap_number), save=True,
+                      **kwargs)
 # Functions for generating profiles
 # ----------------------------------------------------------------------------------------------------------------------#
 
@@ -464,9 +680,6 @@ def generate_image_sequence(simulation_directory, qty, multiprocess=True, nproc=
 # -----------------------------------------------------   MAIN   --------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
-    set_log(_filename, output_type="STDOUT", level=10)
-    data = pyn.load("/home/ediggins/PyCS/initial_conditions/Col_1-1_0.dat")
-    data.g["smooth"] = pyn.sph.smooth(data.g)
-    data.g["rho"] = pyn.sph.rho(data.g)
-    make_plot(data,"temp",save=False,width="12000 kpc",cmap=plt.cm.inferno,av_z=True,resolution=500)
-
+    from PIL import Image
+    set_log(_filename, output_type="FILE", level=10)
+    generate_dm_baryon_image_sequence("/home/ediggins/PyCS/RAMSES_simulations/TestSim",multiprocess=False,width="5000 kpc")

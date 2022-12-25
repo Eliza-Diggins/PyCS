@@ -1,6 +1,6 @@
 """
 
-        Command for producing sequence of a given qty image.
+        Command for producing a sequence of DM-Baryon images
 
 """
 
@@ -18,7 +18,7 @@ from colorama import Fore, Style
 from matplotlib.pyplot import cm
 from PyCS_Core.PyCS_Errors import *
 from PyCS_System.SimulationMangement import get_simulation_qty
-from PyCS_Analysis.Images import generate_image_sequence
+from PyCS_Analysis.Images import generate_dm_baryon_image_sequence
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -37,20 +37,16 @@ if __name__ == '__main__':
     # Argument Parsing
 ########################################################################################################################
     parser = argparse.ArgumentParser()  # setting up the command line argument parser
-    parser.add_argument("qty", help="The quantity to plot")
     parser.add_argument("-sim", "--simulation_name", default=None, help="The simulation name to use")
     parser.add_argument("-simdir", "--simulation_directory", default=None,
                         help="The simulation directory. Only one needs to be specified")
     parser.add_argument("-v","--vbounds",nargs="+",help="The colorbounds if desired.",default=None)
-    parser.add_argument("-t","--title",help="The title to add to the plot.")
     parser.add_argument("-w","--width",help="The width of the region.",default=None),
     parser.add_argument("-u","--units",help="The output units to use")
     parser.add_argument("-tu","--time_units",help="The time units to use in the output.")
     parser.add_argument("-r",'--resolution',help="The resolution to use",type=int)
-    parser.add_argument("-f","--families",help="The families to include.",nargs="+",default=None)
     parser.add_argument("-i","--integrate",help="Average through the slice",action="store_true")
-    parser.add_argument("-log","--logarithmic",action="store_true",help="Use a logarithmic plotting profile.")
-    parser.add_argument("-cmap","--colormap",default="inferno",help="The colormap to use.")
+    parser.add_argument("-c","--colors",help="The two colors to use for the bandpass images.",nargs="+")
     parser.add_argument("-o","--output_type",type=str,default="FILE",help="The type of output to use for logging.")
     parser.add_argument("-l","--logging_level",type=int,default=10,help="The level of logging to use.")
     parser.add_argument("-np","--nproc",type=int,default=1,help="The number of processors to use.")
@@ -67,12 +63,13 @@ if __name__ == '__main__':
     else:
         vmin,vmax = None,None
 
-    if args.families != None:
-        families = args.families
+    if args.colors != None:
+        colors = [str(i) for i in args.colors]
+        if len(colors) != 2:
+            raise ValueError("--colors must have length 2.")
     else:
-        families = None
+        colors = None
 
-    cmap = cm.get_cmap(args.colormap)
 
     if not (args.simulation_name or args.simulation_directory):
         raise OSError("%s: Failed to find either -sim or -simdir. At least one is necessary..."%cdbg_string)
@@ -100,12 +97,12 @@ if __name__ == '__main__':
     kwargs = {
         "vmin":vmin,
         "vmax":vmax,
-        "cmap":cmap,
         "resolution":args.resolution,
         "units":args.units,
-        "time_units":args.time_units
+        "time_units":args.time_units,
+        "colors":colors
     }
     kwargs = {key:value for key,value in kwargs.items() if value != None}
     # Running
 ########################################################################################################################
-    generate_image_sequence(simulation_directory,args.qty,True,args.nproc,**kwargs,width=args.width,log=args.logarithmic,av_z=args.integrate,families=families)
+    generate_dm_baryon_image_sequence(simulation_directory,multiprocess=True,nproc=args.nproc,**kwargs,width=args.width,av_z=args.integrate)

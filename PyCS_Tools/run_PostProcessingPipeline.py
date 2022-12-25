@@ -12,15 +12,13 @@ sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 import argparse
 from PyCS_Core.Configuration import read_config, _configuration_path
 from PyCS_Core.Logging import set_log, log_print, make_error
-from PyCS_System.text_utils import file_select, print_title
-from PyCS_System.SpecConfigs import read_RAMSES_config, read_batch_config, write_nml, write_slurm_script
+from PyCS_System.text_utils import  print_title
+from PyCS_System.SpecConfigs import write_slurm_script
 import pathlib as pt
-import toml
-from datetime import datetime
 from colorama import Fore,Style
 from PyCS_System.text_utils import generate_command_sequence, option_menu
 import time
-from PyCS_System.SimulationMangement import add_simulation,read_simulation_log
+from PyCS_System.SimulationMangement import read_simulation_log
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
@@ -56,9 +54,35 @@ commands_dict = {
             "-np": ("$SLURM_NTASKS", "$SLURM_NTASKS", "The number of processors to use.")
         }
     },
+    "Generate DM-Baryon Image Sequence": {
+        "path": os.path.join(_pycs_head, "PyCS_Commands", "GenerateDM-BImageSequence.py"),
+        "desc": "Plot a sequence of dark matter, baryonic images for the selected simulation.",
+        "options": {
+            "-sim": ("", "", "The simulation name to use. Only one of -sim / -simdir is needed."),
+            "-simdir": ("", "", "The simulation directory."),
+            "-v": ("", "", "The output range boundaries. (should be a string 'vmin vmax'"),
+            "-w": (str(CONFIG["Visualization"]["Images"]["default_width"]),
+                   str(CONFIG["Visualization"]["Images"]["default_width"]), "The width of the plotting area."),
+            "-u": ("", "", "The output units"),
+            "-tu": (str(CONFIG["units"]["default_time_unit"]), str(CONFIG["units"]["default_time_unit"]),
+                    "The time units to use in the simulation"),
+            "-r": (str(CONFIG["Visualization"]["Images"]["default_resolution"]),
+                   str(CONFIG["Visualization"]["Images"]["default_resolution"]),
+                   "The resolution to use for the image."),
+            "-i": (str(CONFIG["Visualization"]["Images"]["default_integration"]),
+                   str(CONFIG["Visualization"]["Images"]["default_integration"]),
+                   "True to integrate through the line of sight."),
+            "-c": (str(CONFIG["Visualization"]["Images"]["DM-B_colors"]),
+                   str(CONFIG["Visualization"]["Images"]["DM-B_colors"]),
+                   "The colors to use for the dark matter and baryons."),
+            "-o": ("", "", "The logging output."),
+            "-l": ("", "", "The debugging level."),
+            "-np": ("$SLURM_NTASKS", "$SLURM_NTASKS", "The number of processors to use.")
+        }
+    },
     "Plot Single Snapshot": {
         "path": os.path.join(_pycs_head, "PyCS_Commands", "PlotSingleSnapshot.py"),
-        "desc": "Plot a sequence of images with a selection of kwargs for the selected simulation.",
+        "desc": "Plot a single image of a given snapshot for a given quantity ",
         "options": {
             "qty": ("", "", "The quantity to plot."),
             "ns":("","","The snapshot number to plot."),
@@ -75,6 +99,33 @@ commands_dict = {
             "-i": (str(CONFIG["Visualization"]["Images"]["default_integration"]), str(CONFIG["Visualization"]["Images"]["default_integration"]), "True to integrate through the line of sight."),
             "-log": (str(CONFIG["Visualization"]["Images"]["default_log"]), str(CONFIG["Visualization"]["Images"]["default_log"]), "Use a logarithmic colormap?"),
             "-cmap": (str(CONFIG["Visualization"]["ColorMaps"]["default_image_colormap"].name), str(CONFIG["Visualization"]["ColorMaps"]["default_image_colormap"].name), "The colormap to use for the plotting."),
+            "-o": ("", "", "The logging output."),
+            "-l": ("", "", "The debugging level.")
+        }
+    },
+    "Plot Single DM-B Snapshot": {
+        "path": os.path.join(_pycs_head, "PyCS_Commands", "PlotSingleDM-BSnapshot.py"),
+        "desc": "Plot a single DM-B image",
+        "options": {
+            "ns": ("", "", "The snapshot number to plot."),
+            "-sim": ("", "", "The simulation name to use. Only one of -sim / -simdir is needed."),
+            "-simdir": ("", "", "The simulation directory."),
+            "-v": ("", "", "The output range boundaries. (should be a string 'vmin vmax'"),
+            "-s": ("", "", "Save the image or show it?"),
+            "-w": (str(CONFIG["Visualization"]["Images"]["default_width"]),
+                   str(CONFIG["Visualization"]["Images"]["default_width"]), "The width of the plotting area."),
+            "-u": ("", "", "The output units"),
+            "-tu": (str(CONFIG["units"]["default_time_unit"]), str(CONFIG["units"]["default_time_unit"]),
+                    "The time units to use in the simulation"),
+            "-r": (str(CONFIG["Visualization"]["Images"]["default_resolution"]),
+                   str(CONFIG["Visualization"]["Images"]["default_resolution"]),
+                   "The resolution to use for the image."),
+            "-i": (str(CONFIG["Visualization"]["Images"]["default_integration"]),
+                   str(CONFIG["Visualization"]["Images"]["default_integration"]),
+                   "True to integrate through the line of sight."),
+            "-c": (str(CONFIG["Visualization"]["Images"]["DM-B_colors"]),
+                   str(CONFIG["Visualization"]["Images"]["DM-B_colors"]),
+                   "The colors to use for the dark matter and baryons."),
             "-o": ("", "", "The logging output."),
             "-l": ("", "", "The debugging level.")
         }
@@ -103,6 +154,24 @@ commands_dict_data = {
             "-np":  "s",
         }
     },
+    "Generate DM-Baryon Image Sequence": {
+        "path": os.path.join(_pycs_head, "PyCS_Commands", "GenerateDM-BImageSequence.py"),
+        "desc": "Plot a sequence of dark matter, baryonic images for the selected simulation.",
+        "options": {
+            "-sim": "s",
+            "-simdir": "s",
+            "-v": "l",
+            "-w": "s",
+            "-u": "s",
+            "-tu": "s",
+            "-r": "s",
+            "-i": "b",
+            "-o": "s",
+            "-l": "s",
+            "-c": "l",
+            "-np": "s",
+        }
+    },
     "Plot Single Snapshot": {
         "path": os.path.join(_pycs_head, "PyCS_Commands", "PlotSingleSnapshot.py"),
         "desc": "Plot a sequence of images with a selection of kwargs for the selected simulation.",
@@ -124,6 +193,25 @@ commands_dict_data = {
             "-cmap":  "s",
             "-o": "s",
             "-l":  "s",
+        }
+    },
+    "Plot Single DM-B Snapshot": {
+        "path": os.path.join(_pycs_head, "PyCS_Commands", "PlotSingleDM-BSnapshot.py"),
+        "desc": "Plot a single DM-B image",
+        "options": {
+            "ns": "s",
+            "-sim": "s",
+            "-simdir": "s",
+            "-v": "l",
+            "-s": "b",
+            "-w": "s",
+            "-u": "s",
+            "-tu": "s",
+            "-r": "s",
+            "-i": "b",
+            "-c": "l",
+            "-o": "s",
+            "-l": "s",
         }
     }
 }
