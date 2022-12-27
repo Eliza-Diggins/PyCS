@@ -189,7 +189,7 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
     # GENERATING THE NML FILE
     ####################################################################################################################
     with open(os.path.join(output_location, name), "w+") as file:  # Creating the file.
-        file.write("#!fortran")
+        file.write("#!fortran\n")
         # Writing the nml file #
         for header in nml_settings:  # Cycle through each of the nml headers
             if header != "CORE" and header not in disabled_headers:  # we skip the "CORE" setting as its just for our usage.
