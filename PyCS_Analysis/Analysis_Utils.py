@@ -29,13 +29,15 @@ CONFIG = read_config(_configuration_path)
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Fixed Variables ----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-
+boltzmann = 1.380649e-23 * pyn.units.Unit("J K^-1")  # Defining the Boltzmann constant
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --------------------------------------------- Multi-Processing Functions ----------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --------------------------------------------------- Sub-Functions -----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+# SETUP Functions
+#----------------------------------------------------------------------------------------------------------------------#
 def find_gas_COM(snapshot,cutoff_parameter=0.5):
     """
     Finds the centers of mass of a colliding cluster.
@@ -159,6 +161,49 @@ def get_families(snapshot,family_names:list):
         else:
             pass
     return fams
+
+# PROFILE CREATION Functions
+#----------------------------------------------------------------------------------------------------------------------#
+def make_pseudo_entropy(snapshot):
+    """
+    Produces a pseudo_entropy array for the gas in the snapshot.
+
+    **Physics:**
+    Here, we use the formula from (J. ZuHone 2018)
+
+    S = k_b T n_e^(-2/3), following Vihklinin et al. 2006, we use n_e = rho_g/(1.252 m_p). Thus
+
+    S = k_b T (rho_g/(1.252 m_p))^-2/3
+
+    Parameters
+    ----------
+    snapshot: The snapshot to create the array for.
+
+    Returns: None
+    -------
+
+    """
+    # intro debugging
+    ####################################################################################################################
+    fdbg_string = "%smake_pseudo_entropy: "%_dbg_string
+    log_print("Attempting to generate entropy array for %s."%snapshot,fdbg_string,"debug")
+
+    # making correct conversions
+    ####################################################################################################################
+    #- constants -#
+    k_b = boltzmann.in_units("keV K^-1") # boltzmann constant
+    m_p = 1.67262192369e-24 # proton mass (grams)
+
+    #- converting units -#
+    rho = snapshot.g["rho"].in_units("g cm^-3") # converting rho to units of g/cm^3.
+    temp = snapshot.g["temp"].in_units("K") # grabbing numerical
+
+    entropy = k_b*temp*(((rho)/(1.252*m_p))**(-2/3))
+
+    snapshot.g["entropy"] = entropy
+    snapshot.g["entropy"].units = pyn.units.Unit("keV cm^2")
+
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Functions -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -215,10 +260,11 @@ def split_binary_collision(snapshot):
 if __name__ == '__main__':
     set_log(_filename,output_type="STDOUT")
     import matplotlib.pyplot as plt
-    data = pyn.load("/home/ediggins/PyCS/initial_conditions/Col_1-1_0.dat")
-    data.g["smooth"] = pyn.sph.smooth(data.g)
-    data.g["rho"] = pyn.sph.rho(data.g)
-    dat = split_binary_collision(data)
-    pyn.plot.sph.image(dat[0].g,width="12000 kpc")
+    data = pyn.load("/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500")
+    align_snapshot(data)
+
+    make_pseudo_entropy(data)
+    print(data.g["entropy"],data.g["entropy"].units)
+    pyn.plot.sph.image(data.g,qty="entropy",width="5000 kpc",cmap=plt.cm.cubehelix)
     plt.show()
 

@@ -13,7 +13,7 @@ sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
 import pynbody as pyn
 from PyCS_Core.Logging import set_log, log_print, make_error
-from PyCS_Analysis.Analysis_Utils import get_families, align_snapshot
+from PyCS_Analysis.Analysis_Utils import get_families, align_snapshot, make_pseudo_entropy
 from PyCS_Core.PyCS_Errors import *
 import matplotlib.pyplot as plt
 from PyCS_System.SimulationMangement import get_simulation_qty
@@ -88,8 +88,14 @@ __quantities = {
         "unit": CONFIG["units"]["default_density_unit"],
         "fancy": "Density",
         "families": ["gas"]
+    },
+    "entropy": {
+        "unit": "keV cm^2",
+        "fancy": "Entropy",
+        "families": ["gas"]
     }
 }
+
 
 #---# PHYSICAL CONSTANTS #---------------------------------------------------------------------------------------------#
 boltzmann = 1.380649e-23 * pyn.units.Unit("J K^-1")  # Defining the Boltzmann constant
@@ -362,6 +368,11 @@ def make_plot(snapshot,
     extent = [-numerical_width / 2, numerical_width / 2, -numerical_width / 2, numerical_width / 2]
 
     # - Getting the data -#
+    ##- deriving arrays -##
+    if qty == "entropy":
+        make_pseudo_entropy(snapshot)
+
+    #- building the array -#
     image_array = generate_image_array(snapshot, qty, families=families, **kwargs)
 
 
