@@ -157,12 +157,37 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
 
         log_print("Found name option: %s (in %s)" % (name, output_location), fdbg_string, "info")
 
-    # GENERATING THE NML FILE
+    # Managing CORE settings
     ####################################################################################################################
-    #- Fetching disabled values -#
+    #- managing memory mode -#
+    mem_mode = nml_settings["CORE"]["Memory"]["mode"][0]
+
+    ##- checking for sensibility -##
+    if mem_mode not in ["tot","max"]:
+        make_error(ValueError,fdbg_string,"%s is not a reasonable memory mode. Use 'tot' or 'max'."%mem_mode)
+
+    ##- setting correct settings -##
+    if mem_mode == "max":
+        # grabbing correct values
+        nml_settings["AMR_PARAMS"]["ngridmax"] = nml_settings["AMR_PARAMS"]["ngrid"]
+        nml_settings["AMR_PARAMS"]["npartmax"] = nml_settings["AMR_PARAMS"]["npart"]
+
+        # deleting
+        del nml_settings["AMR_PARAMS"]["ngrid"],nml_settings["AMR_PARAMS"]["npart"]
+    else:
+        # grabbing correct values
+        nml_settings["AMR_PARAMS"]["ngridtot"] = nml_settings["AMR_PARAMS"]["ngrid"]
+        nml_settings["AMR_PARAMS"]["nparttot"] = nml_settings["AMR_PARAMS"]["npart"]
+
+        # deleting
+        del nml_settings["AMR_PARAMS"]["ngrid"], nml_settings["AMR_PARAMS"]["npart"]
+
+
+    #- collecting disabled headers from [CORE.enabled] -#
     disabled_headers = [str(key).replace("enable_","") for key,value in nml_settings["CORE"]["Enabled"].items() if value[0]=="false"]
 
-    #- Writing the NML -#
+    # GENERATING THE NML FILE
+    ####################################################################################################################
     with open(os.path.join(output_location, name), "w+") as file:  # Creating the file.
         # Writing the nml file #
         for header in nml_settings:  # Cycle through each of the nml headers
