@@ -45,7 +45,7 @@ def update_dict(master: dict, local: dict) -> dict:
         elif isinstance(master[master_key], dict) and master_key not in local:
             pass
         else:
-            if master_key in list(local_keys):
+            if master_key in list(local_keys) and master_key != "version":
                 ### There is a local match ###
                 master[master_key] = local[master_key]
             else:

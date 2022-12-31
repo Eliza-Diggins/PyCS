@@ -156,6 +156,8 @@ def get_options_on_press(key):
             sub_dict_key = __GSV["selected_key"]
             if isinstance(__GSV["sub_dict"][sub_dict_key], tuple):
                 pass
+            elif not len(__GSV["sub_dict"][sub_dict_key]):
+                pass
             else:
                 __GSV["location"].append(__GSV["selected_key"])
                 __GSV["reset"] = True
@@ -1100,11 +1102,7 @@ def option_menu(options, desc=None, title=None):
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename, output_type="FILE")
-    generate_command_sequence({
-        "Command 1": {
-            "path": "some_path",
-            "desc": "Some potential command",
-            "options": {"option 1": ("1", "1", "some description"),
-                        "Simulation": ("None", "None", "The simulation")}
-        }
-    }, Simulation="a sim")
+    get_options({"option 1":{
+        "setting":("1","1","1")
+    },
+    "options 2":{}},"something")
