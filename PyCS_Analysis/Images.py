@@ -6,9 +6,11 @@
 ### Imports ###
 # adding the system path to allow us to import the important modules
 import os
-import sys
 import pathlib as pt
+import sys
+
 import numpy as np
+
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
 import pynbody as pyn
@@ -23,7 +25,8 @@ from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import current_process
 import matplotlib as mpl
 import gc
-from PIL import Image
+import warnings
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -32,6 +35,9 @@ _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
 
+# - managing warnings -#
+if not CONFIG["system"]["logging"]["warnings"]:
+    warnings.filterwarnings('ignore')
 ##- Setting up TEX if it is configured -##
 try:
     if CONFIG["Visualization"]["use_tex"]:
@@ -49,7 +55,7 @@ except RuntimeError:
 # -------------------------------------------------- Fixed Variables ----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 
-#----# PYNBODY KWARGS DEFAULT #----------------------------------------------------------------------------------------#
+# ----# PYNBODY KWARGS DEFAULT #----------------------------------------------------------------------------------------#
 #   These are used by the plotting functions as the basic input kwargs for the plotting functions. They are added
 #   to the input kwargs to create a standardized set of always passed kwargs.
 #
@@ -57,9 +63,9 @@ __pynbody_image_defaults = {
     "cmap": CONFIG["Visualization"]["ColorMaps"]["default_image_colormap"],
     "resolution": CONFIG["Visualization"]["Images"]["default_resolution"],
     "width": CONFIG["Visualization"]["Images"]["default_width"]
-} # Kwargs to pass into pyn.plot.sph.image
+}  # Kwargs to pass into pyn.plot.sph.image
 
-#---# QUANTITY SPECIFIC DEFAULTS #-------------------------------------------------------------------------------------#
+# ---# QUANTITY SPECIFIC DEFAULTS #-------------------------------------------------------------------------------------#
 #   These dictionaries carry kwargs specific to each quantity that gets passed into either the profiles or
 #   the pyn.plot.sph.image() function.
 #
@@ -96,10 +102,9 @@ __quantities = {
     }
 }
 
-
-#---# PHYSICAL CONSTANTS #---------------------------------------------------------------------------------------------#
+# ---# PHYSICAL CONSTANTS #---------------------------------------------------------------------------------------------#
 boltzmann = 1.380649e-23 * pyn.units.Unit("J K^-1")  # Defining the Boltzmann constant
-critical_density = 130 * pyn.units.Unit("Msol kpc^-3") # critical density of the universe.
+critical_density = 130 * pyn.units.Unit("Msol kpc^-3")  # critical density of the universe.
 
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -153,7 +158,6 @@ def fix_array(array, qty, units):
         return array
 
 
-
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --------------------------------------------- Multi-Processing Functions ----------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -190,6 +194,8 @@ def mp_make_plot(arg):
             exit()
         make_plot(snap, args[3], end_file=os.path.join(args[1], "Image_%s.png" % (simulation.replace("output_", ""))),
                   **kwargs)
+
+
 def mp_make_gas_dm_plot(arg):
     """
     Multiprocessing make bary/dm plot function. The args parameter should have the format
@@ -222,7 +228,8 @@ def mp_make_gas_dm_plot(arg):
             log_print("Ran out of memory", fdbg_string, "critical")
             exit()
         make_gas_dm_image(snap, end_file=os.path.join(args[1], "Image_%s.png" % (simulation.replace("output_", ""))),
-                  **kwargs)
+                          **kwargs)
+
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --------------------------------------------------- Sub-Functions -----------------------------------------------------#
@@ -372,11 +379,10 @@ def make_plot(snapshot,
     if qty == "entropy":
         make_pseudo_entropy(snapshot)
 
-    #- building the array -#
+    # - building the array -#
     image_array = generate_image_array(snapshot, qty, families=families, **kwargs)
 
-
-    #- MANAGING COLORS AND VMIN/VMAX
+    # - MANAGING COLORS AND VMIN/VMAX
 
     if not vmin:
         vmin = np.amin(image_array)
@@ -384,10 +390,10 @@ def make_plot(snapshot,
         vmax = np.amax(image_array)
 
     if log:
-        vmin = (vmin if vmin>0 else np.amin(image_array[np.where(image_array > 0)]))
-        color_norm = mpl.colors.LogNorm(vmin=vmin, vmax=vmax,clip=True)
+        vmin = (vmin if vmin > 0 else np.amin(image_array[np.where(image_array > 0)]))
+        color_norm = mpl.colors.LogNorm(vmin=vmin, vmax=vmax, clip=True)
     else:
-        color_norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax,clip=True)
+        color_norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
 
     ### making the plot ###
     image = axes.imshow(image_array, origin="lower", cmap=kwargs["cmap"], extent=extent, norm=color_norm)
@@ -423,39 +429,39 @@ def make_plot(snapshot,
     else:
         plt.show()
 
+
 def make_gas_dm_image(snapshot,
                       save=CONFIG["Visualization"]["default_figure_save"],
-                      end_file = None,
+                      end_file=None,
                       vmin=critical_density,
                       vmax=None,
                       colors=None,
-                      time_units = pyn.units.Unit(CONFIG["units"]["default_time_unit"]),
+                      time_units=pyn.units.Unit(CONFIG["units"]["default_time_unit"]),
                       length_units=CONFIG["units"]["default_length_unit"],
                       **kwargs):
     # Intro debugging
     ####################################################################################################################
-    fdbg_string = "%smake_gas_dm_image: "%_dbg_string
-    log_print("Generating gas/dm image for snapshot %s."%snapshot,fdbg_string,"debug")
+    fdbg_string = "%smake_gas_dm_image: " % _dbg_string
+    log_print("Generating gas/dm image for snapshot %s." % snapshot, fdbg_string, "debug")
 
     # Setup
     ####################################################################################################################
-    #- managing colors -#
+    # - managing colors -#
     if not colors:
-        colors = ["aqua","fuchsia"]
+        colors = ["aqua", "fuchsia"]
 
     colors = [mpl.colors.to_rgb(i) for i in colors]
 
-    #- Managing other settings -#
+    # - Managing other settings -#
     for key, value in __pynbody_image_defaults.items():  # cycle through all of the defaults
         if key not in kwargs and key != "cmap":
             kwargs[key] = value
         else:
             pass
 
-
     if not "resolution" in kwargs:
-        kwargs["resolution"]= CONFIG["Visualization"]["Images"]["default_resolution"]
-    #- fetching units -#
+        kwargs["resolution"] = CONFIG["Visualization"]["Images"]["default_resolution"]
+    # - fetching units -#
     if not "units" in kwargs:
         kwargs["units"] = set_units("rho")
     else:
@@ -463,60 +469,64 @@ def make_gas_dm_image(snapshot,
 
     if isinstance(time_units, str):
         time_units = pyn.units.Unit(time_units)
-    #- Fetching the necessary images -#
+    # - Fetching the necessary images -#
 
-    dark_matter_array = generate_image_array(snapshot,"rho",families=["dm"],**kwargs)
-    baryonic_array = generate_image_array(snapshot,"rho",families=["gas"],**kwargs)
+    dark_matter_array = generate_image_array(snapshot, "rho", families=["dm"], **kwargs)
+    baryonic_array = generate_image_array(snapshot, "rho", families=["gas"], **kwargs)
 
-    #- creating norms -#
+    # - creating norms -#
     if not vmax:
-        vmax_dm,vmax_gas = np.amax(dark_matter_array),np.amax(baryonic_array) # grabbing vmins and vmaxs.
+        vmax_dm, vmax_gas = np.amax(dark_matter_array), np.amax(baryonic_array)  # grabbing vmins and vmaxs.
     else:
-        vmax_dm,vmax_gas = vmax,vmax
+        vmax_dm, vmax_gas = vmax, vmax
     # setting vmin
     ##- Recognize that if vmin is united, then we have to change to correct units. if no, leave as float.
     try:
         vmin = vmin.in_units(kwargs["units"])
     except Exception:
-        vmin = vmin # we just set trivially.
-    print(vmin,vmax_dm,vmax_gas)
+        vmin = vmin  # we just set trivially.
+    print(vmin, vmax_dm, vmax_gas)
     ##- Generating the norms -##
-    norm_dm,norm_gas = mpl.colors.LogNorm(vmin=vmin,vmax=vmax_dm,clip=True),mpl.colors.LogNorm(vmin=vmin,vmax=vmax_gas,clip=True)
+    norm_dm, norm_gas = mpl.colors.LogNorm(vmin=vmin, vmax=vmax_dm, clip=True), mpl.colors.LogNorm(vmin=vmin,
+                                                                                                   vmax=vmax_gas,
+                                                                                                   clip=True)
 
-    #- generating the extent -#
+    # - generating the extent -#
     numerical_width = float(pyn.units.Unit(kwargs["width"]).in_units(length_units))
     extent = [-numerical_width / 2, numerical_width / 2, -numerical_width / 2, numerical_width / 2]
     # Generating the images
     ####################################################################################################################
 
-    #- Creating the empty image arrays (RGBA) -#
-    dm_im,gas_im = np.zeros((kwargs["resolution"],kwargs["resolution"],4)),np.zeros((kwargs["resolution"],kwargs["resolution"],4))
+    # - Creating the empty image arrays (RGBA) -#
+    dm_im, gas_im = np.zeros((kwargs["resolution"], kwargs["resolution"], 4)), np.zeros(
+        (kwargs["resolution"], kwargs["resolution"], 4))
 
-    #- Setting colors -#
-    dm_im[:,:,:-1],gas_im[:,:,:-1] = tuple(colors) # assign the RGB segments of the arrays to the colors.
-    #- Setting alpha -#
-    dm_im[:,:,3],gas_im[:,:,3] = norm_dm(dark_matter_array),norm_gas(baryonic_array) # generating the image arrays.
+    # - Setting colors -#
+    dm_im[:, :, :-1], gas_im[:, :, :-1] = tuple(colors)  # assign the RGB segments of the arrays to the colors.
+    # - Setting alpha -#
+    dm_im[:, :, 3], gas_im[:, :, 3] = norm_dm(dark_matter_array), norm_gas(
+        baryonic_array)  # generating the image arrays.
 
-    dm_image,gas_image = Image.fromarray(np.uint8(dm_im*255)),Image.fromarray(np.uint8(gas_im*255))
-    final_image = Image.alpha_composite(dm_image,gas_image)
+    dm_image, gas_image = Image.fromarray(np.uint8(dm_im * 255)), Image.fromarray(np.uint8(gas_im * 255))
+    final_image = Image.alpha_composite(dm_image, gas_image)
 
-    #- cleaning up -#
-    del baryonic_array,dark_matter_array,dm_image,gas_image,dm_im,gas_im
+    # - cleaning up -#
+    del baryonic_array, dark_matter_array, dm_image, gas_image, dm_im, gas_im
     gc.collect()
     # Plotting
     ####################################################################################################################
-    #- Making the figure -#
+    # - Making the figure -#
     fig = plt.figure(figsize=tuple(CONFIG["Visualization"]["default_figure_size"]))
     axes = fig.add_subplot(111)
 
-    axes.imshow(final_image,extent=extent)
+    axes.imshow(final_image, extent=extent)
 
     # - TITLES -#
     plt.title(r"$t = \mathrm{%s\;%s}$" % (
         np.round(snapshot.properties["time"].in_units(time_units), decimals=2),
         time_units.latex()), fontsize=10)
 
-    plt.suptitle("Comparative Distribution of Dark Matter and Baryonic Matter",y=0.93)
+    plt.suptitle("Comparative Distribution of Dark Matter and Baryonic Matter", y=0.93)
 
     # - AXES LABELS -#
     axes.set_ylabel(r"$y\;\;\left[\mathrm{%s}\right]$" % (pyn.units.Unit(length_units).latex()))
@@ -612,6 +622,7 @@ def generate_image_sequence(simulation_directory, qty, multiprocess=True, nproc=
             make_plot(snapshot, qty, end_file=os.path.join(output_directory, "Image_%s.png" % snap_number), save=True,
                       **kwargs)
 
+
 def generate_dm_baryon_image_sequence(simulation_directory, multiprocess=True, nproc=3, **kwargs):
     """
     Generates a sequence of baryon/dm images for the simulation using the given simulation.
@@ -627,8 +638,9 @@ def generate_dm_baryon_image_sequence(simulation_directory, multiprocess=True, n
     # DEBUGGING
     ########################################################################################################################
     fdbg_string = _dbg_string + "generate_dm_baryon_image_sequence: "
-    log_print("Generating dm/baryon image sequence for %s with the following kwargs: %s" % (simulation_directory, kwargs),
-              fdbg_string, "debug")
+    log_print(
+        "Generating dm/baryon image sequence for %s with the following kwargs: %s" % (simulation_directory, kwargs),
+        fdbg_string, "debug")
 
     # SETUP
     ########################################################################################################################
@@ -648,7 +660,8 @@ def generate_dm_baryon_image_sequence(simulation_directory, multiprocess=True, n
         kwargs["av_z"] = False
 
     output_directory = os.path.join(CONFIG["system"]["directories"]["figures_directory"], simulation_name,
-                                    "%s-(I-%s)" % ("DM-B", kwargs["av_z"]), datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))
+                                    "%s-(I-%s)" % ("DM-B", kwargs["av_z"]),
+                                    datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))
 
     if not os.path.exists(output_directory):
         pt.Path.mkdir(pt.Path(output_directory), parents=True)
@@ -682,8 +695,11 @@ def generate_dm_baryon_image_sequence(simulation_directory, multiprocess=True, n
             align_snapshot(snapshot)
 
             # - Plotting -#
-            make_gas_dm_image(snapshot, end_file=os.path.join(output_directory, "Image_%s.png" % snap_number), save=True,
-                      **kwargs)
+            make_gas_dm_image(snapshot, end_file=os.path.join(output_directory, "Image_%s.png" % snap_number),
+                              save=True,
+                              **kwargs)
+
+
 # Functions for generating profiles
 # ----------------------------------------------------------------------------------------------------------------------#
 
@@ -692,5 +708,7 @@ def generate_dm_baryon_image_sequence(simulation_directory, multiprocess=True, n
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     from PIL import Image
+
     set_log(_filename, output_type="FILE", level=10)
-    generate_dm_baryon_image_sequence("/home/ediggins/PyCS/RAMSES_simulations/TestSim",multiprocess=False,width="5000 kpc")
+    generate_dm_baryon_image_sequence("/home/ediggins/PyCS/RAMSES_simulations/TestSim", multiprocess=False,
+                                      width="5000 kpc")

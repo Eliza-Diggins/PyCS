@@ -4,9 +4,9 @@
                 Written by: Eliza Diggins
 
 """
-import sys
-import pathlib as pt
 import os
+import pathlib as pt
+import sys
 
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
@@ -14,7 +14,8 @@ from PyCS_Core.Logging import set_log, log_print, make_error
 import pathlib as pt
 import toml
 from datetime import datetime
-from PyCS_System.text_utils import get_options
+import warnings
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -23,40 +24,49 @@ _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
 
+# - managing warnings -#
+if not CONFIG["system"]["logging"]["warnings"]:
+    warnings.filterwarnings('ignore')
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Fixed Variables ----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-sbatch_commands={ # These are the batch commands that we need to be able to add to .SLURM files.
-    "BATCH_TIME":"#SBATCH --time=",
-    "BATCH_NODES":"#SBATCH --nodes=",
-    "BATCH_STD_OUT_FRMT":"#SBATCH -o ",
-    "BATCH_STD_ERR_FRMT":"#SBATCH -e ",
-    "BATCH_NTASKS":"#SBATCH --ntasks=",
-    "BATCH_ACCOUNT":"#SBATCH --account=",
-    "BATCH_PARTITION":"#SBATCH --partition="
+sbatch_commands = {  # These are the batch commands that we need to be able to add to .SLURM files.
+    "BATCH_TIME": "#SBATCH --time=",
+    "BATCH_NODES": "#SBATCH --nodes=",
+    "BATCH_STD_OUT_FRMT": "#SBATCH -o ",
+    "BATCH_STD_ERR_FRMT": "#SBATCH -e ",
+    "BATCH_NTASKS": "#SBATCH --ntasks=",
+    "BATCH_ACCOUNT": "#SBATCH --account=",
+    "BATCH_PARTITION": "#SBATCH --partition="
 }
+
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Sub-Functions ------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 def tuplify_dict(dict):
     ret_dict = {}
-    for key,value in dict.items():
-        if isinstance(value,list):
-            ret_dict[key]=tuple(value)
+    for key, value in dict.items():
+        if isinstance(value, list):
+            ret_dict[key] = tuple(value)
         else:
-            ret_dict[key]=tuplify_dict(dict[key])
+            ret_dict[key] = tuplify_dict(dict[key])
 
     return ret_dict
-def find_next_available_number(list,name_format):
+
+
+def find_next_available_number(list, name_format):
     check = False
     l = 1
     while not check:
-        if name_format%l in list:
-            l+=1
+        if name_format % l in list:
+            l += 1
         else:
             check = True
 
-    return name_format%l
+    return name_format % l
+
+
 def read_RAMSES_config(configuration_path=os.path.join(CONFIG["system"]["directories"]["bin_directory"], "configs",
                                                        "RAMSES_config.ini")) -> dict:
     """
@@ -74,7 +84,6 @@ def read_RAMSES_config(configuration_path=os.path.join(CONFIG["system"]["directo
         log_print("Read %s." % configuration_path, fdbg_string, "debug")
     except Exception:  # TODO: This could potentially be refined for more pythonic expression
         make_error(SyntaxError, fdbg_string, "Failed to read TOML file %s." % configuration_path)
-
 
     return tuplify_dict(RAMSES_CONFIG)
 
@@ -100,8 +109,9 @@ def read_batch_config(configuration_path=os.path.join(CONFIG["system"]["director
     ### Reformatting ###
     return tuplify_dict(batch_CONFIG)
 
+
 def read_clustep_config(configuration_path=os.path.join(CONFIG["system"]["directories"]["bin_directory"], "configs",
-                                                      "CLUSTEP_config.ini")) -> dict:
+                                                        "CLUSTEP_config.ini")) -> dict:
     """
     Reads the specified CLUSTEP configuration file.
     :param configuration_path: the path in which to look for the given file.
@@ -120,11 +130,12 @@ def read_clustep_config(configuration_path=os.path.join(CONFIG["system"]["direct
 
     return tuplify_dict(clustep_CONFIG)
 
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ---------------------------------------------------- Functions --------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["directories"]["RAMSES_nml_directory"],
-              name=None) ->str:
+              name=None) -> str:
     """
     Write the RAMSES nml file corresponding to the input nml settings at the output location.
     :param nml_settings: The nml settings.
@@ -159,12 +170,12 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
 
     # Managing CORE settings
     ####################################################################################################################
-    #- managing memory mode -#
+    # - managing memory mode -#
     mem_mode = nml_settings["CORE"]["Memory"]["mode"][0]
 
     ##- checking for sensibility -##
-    if mem_mode not in ["tot","max"]:
-        make_error(ValueError,fdbg_string,"%s is not a reasonable memory mode. Use 'tot' or 'max'."%mem_mode)
+    if mem_mode not in ["tot", "max"]:
+        make_error(ValueError, fdbg_string, "%s is not a reasonable memory mode. Use 'tot' or 'max'." % mem_mode)
 
     ##- setting correct settings -##
     if mem_mode == "max":
@@ -173,7 +184,7 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
         nml_settings["AMR_PARAMS"]["npartmax"] = nml_settings["AMR_PARAMS"]["npart"]
 
         # deleting
-        del nml_settings["AMR_PARAMS"]["ngrid"],nml_settings["AMR_PARAMS"]["npart"]
+        del nml_settings["AMR_PARAMS"]["ngrid"], nml_settings["AMR_PARAMS"]["npart"]
     else:
         # grabbing correct values
         nml_settings["AMR_PARAMS"]["ngridtot"] = nml_settings["AMR_PARAMS"]["ngrid"]
@@ -182,9 +193,9 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
         # deleting
         del nml_settings["AMR_PARAMS"]["ngrid"], nml_settings["AMR_PARAMS"]["npart"]
 
-
-    #- collecting disabled headers from [CORE.enabled] -#
-    disabled_headers = [str(key).replace("enable_","") for key,value in nml_settings["CORE"]["Enabled"].items() if value[0]=="false"]
+    # - collecting disabled headers from [CORE.enabled] -#
+    disabled_headers = [str(key).replace("enable_", "") for key, value in nml_settings["CORE"]["Enabled"].items() if
+                        value[0] == "false"]
 
     # GENERATING THE NML FILE
     ####################################################################################################################
@@ -202,7 +213,7 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
                 file.write("/\n\n")
 
     log_print("Finished writing %s in %s." % (name, output_location), fdbg_string, "info")
-    return os.path.join(output_location,name)
+    return os.path.join(output_location, name)
 
 
 def write_slurm_script(command_string: str,
@@ -225,60 +236,63 @@ def write_slurm_script(command_string: str,
     """
     ### Introduction debug ###
     datetime_string = datetime.now().strftime('%m-%d-%Y_%H-%M-%S')
-    fdbg_string = _dbg_string+"write_slurm_script: "
-    log_print("Writing a slurm script at %s/%s (name=%s,type=%s)."%(save_location,name,name,type),fdbg_string,"debug")
+    fdbg_string = _dbg_string + "write_slurm_script: "
+    log_print("Writing a slurm script at %s/%s (name=%s,type=%s)." % (save_location, name, name, type), fdbg_string,
+              "debug")
 
     ### Managing the save location ###
-    if not os.path.exists(save_location): # The save location doesn't yet exist. We will make it
-        pt.Path.mkdir(pt.Path(save_location),parents=True) # Generate the file
+    if not os.path.exists(save_location):  # The save location doesn't yet exist. We will make it
+        pt.Path.mkdir(pt.Path(save_location), parents=True)  # Generate the file
 
     ### Resolving naming issue ###
     # - Grabbing the existing files in the directory
-    extant_files = [file for file in os.listdir(save_location) if ".slurm" in file] # grab all of the things in the directory
-    if not name: # There was no specified name
-        if not type: # There was also no specified type
-            name = "SLURM_%s.slurm"%(datetime_string)
+    extant_files = [file for file in os.listdir(save_location) if
+                    ".slurm" in file]  # grab all of the things in the directory
+    if not name:  # There was no specified name
+        if not type:  # There was also no specified type
+            name = "SLURM_%s.slurm" % (datetime_string)
         else:
             # We do have a type.
-            name = "SLURM_%s_%s.slurm"%(type,datetime_string)
-    else: # The name is fine.
+            name = "SLURM_%s_%s.slurm" % (type, datetime_string)
+    else:  # The name is fine.
         pass
 
     # - logging
-    log_print("Name has been cleared. Final name is %s."%name,fdbg_string,"debug")
+    log_print("Name has been cleared. Final name is %s." % name, fdbg_string, "debug")
 
     ### Getting batch settings ###
-    batch_default_settings = read_batch_config() # grab the basic batch system files.
-    batch_settings = get_options(batch_default_settings,"Batch Settings") # grabbing the proper settings
+    batch_default_settings = read_batch_config()  # grab the basic batch system files.
+    batch_settings = get_options(batch_default_settings, "Batch Settings")  # grabbing the proper settings
 
-    for setting in ["BATCH_STD_OUT_FRMT","BATCH_STD_ERR_FRMT"]:
-        batch_settings[setting] = tuple([os.path.join(CONFIG["system"]["directories"]["SLURM_directory"],"output",batch_settings[setting][0])]+list(batch_settings[setting])[1:])
+    for setting in ["BATCH_STD_OUT_FRMT", "BATCH_STD_ERR_FRMT"]:
+        batch_settings[setting] = tuple([os.path.join(CONFIG["system"]["directories"]["SLURM_directory"], "output",
+                                                      batch_settings[setting][0])] + list(batch_settings[setting])[1:])
     ### Writing the batch script ###
-    with open(os.path.join(save_location,name),"w+") as file: # Opening the file
+    with open(os.path.join(save_location, name), "w+") as file:  # Opening the file
         file.write("#!/bin/csh\n\n")
 
-        for option in batch_settings: # We cycle through the batch settings list
-            file.write(sbatch_commands[option]+"%s\n"%batch_settings[option][0])
+        for option in batch_settings:  # We cycle through the batch settings list
+            file.write(sbatch_commands[option] + "%s\n" % batch_settings[option][0])
 
         file.write("\n\n#--- COMMANDS --- #\n")
         file.write(command_string)
 
     ### Batching if necessary ###
-    if batch: # we are batching
-        os.system("sbatch %s"%os.path.join(save_location,name))
+    if batch:  # we are batching
+        os.system("sbatch %s" % os.path.join(save_location, name))
         os.system("squeue -u $USER")
 
 
-
-def write_clustep_ini(dict,filename):
+def write_clustep_ini(dict, filename):
     """
     Writes a clustep ini from the dict in the given filename.
     """
-    with open(filename,"w+") as file:
+    with open(filename, "w+") as file:
         for header in dict:
-            file.write("[%s]\n"%header)
+            file.write("[%s]\n" % header)
             for option in dict[header]:
-                file.write("%s=%s\n"%(option,str(dict[header][option][0])))
+                file.write("%s=%s\n" % (option, str(dict[header][option][0])))
+
 
 def read_clustep_ini(file_path):
     """
@@ -291,35 +305,35 @@ def read_clustep_ini(file_path):
     -------
 
     """
-    data = {} # holds the data to return
-    current_header = None # keeps track of the current header in the toml file
+    data = {}  # holds the data to return
+    current_header = None  # keeps track of the current header in the toml file
     # Reading the data file
     ####################################################################################################################
-    with open(file_path,"r+") as file:
+    with open(file_path, "r+") as file:
         d = file.read()
 
     # Manipulating the data
     ####################################################################################################################
     for line in [l for l in d.split("\n") if len(l) != 0]:
-        #- Removing spaces -#
-        line.replace(" ","")
+        # - Removing spaces -#
+        line.replace(" ", "")
 
-        #- detecting headers -#
-        if line[0]=="[": #this is a header line
-            header_string = line[1:].split("]")[0] # grab the header name and add to data.
+        # - detecting headers -#
+        if line[0] == "[":  # this is a header line
+            header_string = line[1:].split("]")[0]  # grab the header name and add to data.
             data[header_string] = {}
 
             ##- setting the current header to know where we are -##
-            current_header=header_string
+            current_header = header_string
         else:
-            #- this is a normal line -#
+            # - this is a normal line -#
 
             ##- Removing ; comments from the line -##
-            if ";" in line: # there is a comment that we need to remove
-                line = line.split(";")[0] # remove the comment
+            if ";" in line:  # there is a comment that we need to remove
+                line = line.split(";")[0]  # remove the comment
 
-            #- adding the key,value combination to data -#
-            key,value = line.split("=")
+            # - adding the key,value combination to data -#
+            key, value = line.split("=")
 
             ##- Trying to convert to float if possible -##
             try:
@@ -327,7 +341,7 @@ def read_clustep_ini(file_path):
             except Exception:
                 pass
 
-            #- Storing the data in the correct place -#
+            # - Storing the data in the correct place -#
             if not current_header:
                 data[key] = value
             else:
@@ -335,6 +349,7 @@ def read_clustep_ini(file_path):
     # Returning
     ####################################################################################################################
     return data
+
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------- Main ----------------------------------------------------------#

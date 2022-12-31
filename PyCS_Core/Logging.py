@@ -3,13 +3,15 @@
             -- Last Check: 12/16 --
 """
 import logging
-import sys
 import logging as log
-from PyCS_Core.Configuration import read_config, _configuration_path
 import os
 import pathlib as pt
+import sys
 from datetime import datetime
+
 from colorama import Fore, Style, init
+
+from PyCS_Core.Configuration import read_config, _configuration_path
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Variables ------------------------------------------------------#
@@ -73,7 +75,6 @@ class CustomCFormatter(log.Formatter):
     for level in list(lvls.keys()):
         FORMATS[getattr(log, level.upper())] = str(_log_style[level]) + str(_log_colors[level]) + format
 
-
     def format(self, record):
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = log.Formatter(log_fmt)
@@ -109,12 +110,12 @@ def log_print(text, loc, level):
     ### Creating the alert ###
     if __output_log_type == "FILE":
         try:
-            log.log(lvls[level], loc + " "+text)
+            log.log(lvls[level], loc + " " + text)
         except Exception:
             pass
     elif __output_log_type == "STDOUT":
         try:
-            log.log(lvls[level], _loc_color + loc + " "+ _log_colors[level] + text)
+            log.log(lvls[level], _loc_color + loc + " " + _log_colors[level] + text)
         except Exception:
             pass
 
@@ -135,16 +136,16 @@ def set_log(script_name: str,
     """
     global __output_log_type
     ### Generating the correct file location ###
-    if not os.path.exists(os.path.join(CONFIG["system"]["directories"]["bin_directory"],"Logging", script_name)):
+    if not os.path.exists(os.path.join(CONFIG["system"]["directories"]["bin_directory"], "Logging", script_name)):
         # This path doesn't yet exist and therefore needs to be generated.
-        pt.Path.mkdir(pt.Path(os.path.join(CONFIG["system"]["directories"]["bin_directory"],"Logging", script_name)),
+        pt.Path.mkdir(pt.Path(os.path.join(CONFIG["system"]["directories"]["bin_directory"], "Logging", script_name)),
                       parents=True)  # make the directory
 
     ### Setting the logger ###
     if output_type == "FILE":  # we are outputting to a file
         __output_log_type = output_type
         handler_sh_file = logging.FileHandler(
-            filename=os.path.join(CONFIG["system"]["directories"]["bin_directory"],"Logging", script_name,
+            filename=os.path.join(CONFIG["system"]["directories"]["bin_directory"], "Logging", script_name,
                                   "%s.log" % datetime.now().strftime('%m-%d-%Y_%H-%M-%S')))
         handler_sh_file.setFormatter(CustomFormatter())
         log.basicConfig(handlers=[handler_sh_file], level=level)
@@ -163,10 +164,11 @@ def set_log(script_name: str,
     stream_logger = logging.getLogger("PIL")
     stream_logger.setLevel(logging.WARNING)
 
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------------  MAIN  --------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     ### Setting the log ###
     set_log(_filename, output_type="FILE")
-    log_print("ooops",_filename+": ","debug")
+    log_print("ooops", _filename + ": ", "debug")

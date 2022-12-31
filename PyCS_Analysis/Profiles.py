@@ -6,23 +6,16 @@
 ### Imports ###
 # adding the system path to allow us to import the important modules
 import os
-import sys
 import pathlib as pt
-import numpy as np
+import sys
+
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
 import pynbody as pyn
 from PyCS_Core.Logging import set_log, log_print, make_error
-from PyCS_Analysis.Analysis_Utils import get_families, align_snapshot
-from PyCS_Core.PyCS_Errors import *
 import matplotlib.pyplot as plt
-from PyCS_System.SimulationMangement import get_simulation_qty
-from utils import split
-from datetime import datetime
-from concurrent.futures import ProcessPoolExecutor
-from multiprocessing import current_process
-import matplotlib as mpl
 import gc
+import warnings
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
@@ -32,6 +25,9 @@ _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
 
+# - managing warnings -#
+if not CONFIG["system"]["logging"]["warnings"]:
+    warnings.filterwarnings('ignore')
 ##- Setting up TEX if it is configured -##
 try:
     if CONFIG["Visualization"]["use_tex"]:
@@ -49,7 +45,7 @@ except RuntimeError:
 # -------------------------------------------------- Fixed Variables ----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 
-#----# PYNBODY KWARGS DEFAULT #----------------------------------------------------------------------------------------#
+# ----# PYNBODY KWARGS DEFAULT #----------------------------------------------------------------------------------------#
 #   These are used by the plotting functions as the basic input kwargs for the plotting functions. They are added
 #   to the input kwargs to create a standardized set of always passed kwargs.
 #
@@ -59,9 +55,9 @@ __pynbody_profile_defaults = {
     "type": CONFIG["analysis"]["profiles"]["type"],
     "rmin": None,
     "rmax": None
-} # Kwargs to pass through pyn.analysis.profile.Profile
+}  # Kwargs to pass through pyn.analysis.profile.Profile
 
-#---# QUANTITY SPECIFIC DEFAULTS #-------------------------------------------------------------------------------------#
+# ---# QUANTITY SPECIFIC DEFAULTS #-------------------------------------------------------------------------------------#
 #   These dictionaries carry kwargs specific to each quantity that gets passed into either the profiles or
 #   the pyn.plot.sph.image() function.
 #
@@ -113,7 +109,7 @@ __quantities = {
     }
 }
 
-#---# PHYSICAL CONSTANTS #---------------------------------------------------------------------------------------------#
+# ---# PHYSICAL CONSTANTS #---------------------------------------------------------------------------------------------#
 boltzmann = 1.380649e-23 * pyn.units.Unit("J K^-1")  # Defining the Boltzmann constant
 
 
@@ -147,7 +143,6 @@ def fancy_qty(qty):
 
     """
     return __quantities[qty]["fancy"]
-
 
 
 def fix_array_u(array, qty, units):
@@ -225,11 +220,12 @@ def make_profile_plot(snapshot,
     fig = plt.figure(figsize=tuple(CONFIG["Visualization"]["default_figure_size"]))
     axes = fig.add_subplot(111)
 
-    #- Generating the plot on the axes.
-    data = _raw_make_profile_plot(snapshot,qty,Lambda=Lambda,Lambda_label=Lambda_label,profile=profile,axes=axes,**kwargs)
+    # - Generating the plot on the axes.
+    data = _raw_make_profile_plot(snapshot, qty, Lambda=Lambda, Lambda_label=Lambda_label, profile=profile, axes=axes,
+                                  **kwargs)
 
-    #- pulling important info out of data -#
-    x,y = tuple(data[1:])
+    # - pulling important info out of data -#
+    x, y = tuple(data[1:])
     # - managing text -#
     axes.set_xlabel(r"Radius [$%s$]" % (x.units.latex()))  # setting the x axis
     axes.set_ylabel(r"%s [$%s$]" % (__quantities[qty]["fancy"], y.units.latex()))
@@ -256,12 +252,13 @@ def make_profile_plot(snapshot,
     else:
         plt.show()
 
+
 def make_profiles_plot(snapshot,
-                      quantities:list,
-                      profile=None,
-                      save=CONFIG["Visualization"]["default_figure_save"],
-                      end_file=CONFIG["system"]["directories"]["figures_directory"],
-                      **kwargs):
+                       quantities: list,
+                       profile=None,
+                       save=CONFIG["Visualization"]["default_figure_save"],
+                       end_file=CONFIG["system"]["directories"]["figures_directory"],
+                       **kwargs):
     """
     Plots the ``qtys`` of the ``snapshot`` as well as overlayed ``Lambdas``.
     Parameters
@@ -293,29 +290,29 @@ def make_profiles_plot(snapshot,
 
     # Setup
     ####################################################################################################################
-    #- Title Management -#
+    # - Title Management -#
     if "title" in kwargs:
         title = kwargs["title"]
         del kwargs["title"]
     else:
         title = ""
 
-    #- Fixing quantities -#
+    # - Fixing quantities -#
 
     ##- Are units consistent? -##
     if len(list(set(list([__quantities[qty["quantity"]]["unit"] for qty in quantities])))) > 1:
-        make_error(TypeError,fdbg_string,"Quantities %s are not compatible."%quantities)
+        make_error(TypeError, fdbg_string, "Quantities %s are not compatible." % quantities)
 
     ##- Fixing internals -##
     for quantity in quantities:
-        #- Checking that the keys all have a Lambda or None -#
+        # - Checking that the keys all have a Lambda or None -#
         if not "Lambda" in quantity["q_kwargs"]:
             quantity["q_kwargs"]["Lambda"] = None
-            quantity["q_kwargs"]["Lambda_label"]=None
+            quantity["q_kwargs"]["Lambda_label"] = None
         elif not "Lambda_label" in quantity["q_kwargs"]:
-            quantity["q_kwargs"]["Lambda_label"]=None
+            quantity["q_kwargs"]["Lambda_label"] = None
 
-        #- managing kwargs in the main set that need to be moved to the output set -#
+        # - managing kwargs in the main set that need to be moved to the output set -#
         if "logx" in kwargs:
             quantity["q_kwargs"]["logx"] = kwargs["logx"]
         if "logy" in kwargs:
@@ -330,15 +327,15 @@ def make_profiles_plot(snapshot,
     fig = plt.figure(figsize=tuple(CONFIG["Visualization"]["default_figure_size"]))
     axes = fig.add_subplot(111)
 
-    #- Generating the plot on the axes.
+    # - Generating the plot on the axes.
     for quantity in quantities:
         data = _raw_make_profile_plot(snapshot,
                                       quantity["quantity"],
                                       profile=profile,
-                                      axes=axes,**quantity["q_kwargs"])
+                                      axes=axes, **quantity["q_kwargs"])
 
-    #- pulling important info out of data -#
-    x,y = tuple(data[1:])
+    # - pulling important info out of data -#
+    x, y = tuple(data[1:])
     # - managing text -#
     axes.set_xlabel(r"Radius [$%s$]" % (x.units.latex()))  # setting the x axis
     if 'label_y' in kwargs:
@@ -369,12 +366,12 @@ def make_profiles_plot(snapshot,
 
 
 def _raw_make_profile_plot(snapshot,
-                      qty,
-                      Lambda=None,
-                      Lambda_label=None,
-                      profile=None,
-                      axes=None,
-                      **kwargs):
+                           qty,
+                           Lambda=None,
+                           Lambda_label=None,
+                           profile=None,
+                           axes=None,
+                           **kwargs):
     """
     Plots the ``qty`` profile of the input ``snapshot``. User can select an additional ``Lambda`` and ``Lambda_label`` to
     overlay on the plot.
@@ -491,7 +488,6 @@ def _raw_make_profile_plot(snapshot,
     else:
         logy = False
 
-
     if "label" not in kwargs:
         kwargs["label"] = __quantities[qty]["fancy"]
     # Plotting
@@ -516,14 +512,14 @@ def _raw_make_profile_plot(snapshot,
 
     ##-managing the lambda function -##
     if Lambda != None:  # there is a lambda function
-        l_kwargs = {key:value for key,value in kwargs.items() if key in ["color","lw"]}
+        l_kwargs = {key: value for key, value in kwargs.items() if key in ["color", "lw"]}
         l_kwargs["ls"] = ":"
-        plt_func(x, Lambda(x), label=(Lambda_label if Lambda_label else ""),**l_kwargs)
-
+        plt_func(x, Lambda(x), label=(Lambda_label if Lambda_label else ""), **l_kwargs)
 
     # Returning
     ####################################################################################################################
-    return [axes,x,y]
+    return [axes, x, y]
+
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Functions -------------------------------------------------------#
@@ -541,9 +537,9 @@ if __name__ == '__main__':
     data = pyn.load("/home/ediggins/PyCS/initial_conditions/Clu_2.dat")
     data.g["smooth"] = pyn.sph.smooth(data.g)
     data.g["rho"] = pyn.sph.rho(data.g)
-    make_profiles_plot(data,[{
-            "quantity":"density",
-            "q_kwargs":{"color":"black","Lambda":lambda x: x**2,"Lambda_label":"A label","label":"Total Density"}},{"quantity":"density",
-            "q_kwargs":{"family":"gas","color":"r"}}],save=False,logy=True,logx=True,units_x="km",title="temp_title")
-
-
+    make_profiles_plot(data, [{
+        "quantity": "density",
+        "q_kwargs": {"color": "black", "Lambda": lambda x: x ** 2, "Lambda_label": "A label",
+                     "label": "Total Density"}}, {"quantity": "density",
+                                                  "q_kwargs": {"family": "gas", "color": "r"}}], save=False, logy=True,
+                       logx=True, units_x="km", title="temp_title")

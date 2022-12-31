@@ -18,8 +18,8 @@ output_location=
 ...
 """
 import os
-import sys
 import pathlib as pt
+import sys
 
 # adding the system path to allow us to import the important modules
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
@@ -28,6 +28,7 @@ from PyCS_Core.Logging import set_log, log_print, make_error
 import toml
 from datetime import datetime
 from colorama import Fore, Back, Style
+import warnings
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
@@ -37,6 +38,9 @@ _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
 
+# - managing warnings -#
+if not CONFIG["system"]["logging"]["warnings"]:
+    warnings.filterwarnings('ignore')
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Fixed Variables ----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -63,8 +67,8 @@ _valid_simulation_kwargs = [
 # -------------------------------------------------- Sub-Functions ------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # SIMULATION MANAGEMENT FUNCTIONS
-#----------------------------------------------------------------------------------------------------------------------#
-def get_simulation_qty(output_qty,known_kwargs):
+# ----------------------------------------------------------------------------------------------------------------------#
+def get_simulation_qty(output_qty, known_kwargs):
     """
     Returns the desired output qty of all simulations matching the known kwargs.
     Parameters
@@ -80,12 +84,12 @@ def get_simulation_qty(output_qty,known_kwargs):
 
     matches = []
 
-    for key,value in simlog.items():
+    for key, value in simlog.items():
         check_match = True
-        if isinstance(value,dict) and key != "Global":
+        if isinstance(value, dict) and key != "Global":
             shared_keys = [key for key in known_kwargs if key in value]
             for known_key in shared_keys:
-                if value[known_key] == known_kwargs[known_key]: # This is a match
+                if value[known_key] == known_kwargs[known_key]:  # This is a match
                     pass
                 else:
                     check_match = False
@@ -95,6 +99,7 @@ def get_simulation_qty(output_qty,known_kwargs):
             pass
 
     return [simlog[match][output_qty] for match in matches]
+
 
 def read_simulation_log(file: str = _simulation_logs_directory) -> dict:
     """
@@ -300,26 +305,28 @@ def print_calcs(sim_log, pad=2, headers=None):
                 left_overs_dict[key][val] = header_length[headers.index(val)] - (len(sim_log[key][val]))
     return (header_length, left_overs_dict)
 
+
 # IC MANAGEMENT TOOLS
-#----------------------------------------------------------------------------------------------------------------------#
-def add_ic_file(file,**kwargs):
+# ----------------------------------------------------------------------------------------------------------------------#
+def add_ic_file(file, **kwargs):
     # Intro debugging
     ####################################################################################################################
-    fdbg_string = "%sadd_ic_file: "%_dbg_string
-    log_print("Adding %s to the IC log with kwargs:%s."%(file,kwargs),fdbg_string,"debug")
+    fdbg_string = "%sadd_ic_file: " % _dbg_string
+    log_print("Adding %s to the IC log with kwargs:%s." % (file, kwargs), fdbg_string, "debug")
 
     # Checking for / creating the IC log
     ####################################################################################################################
-    #- Checking that the correct directory exists first and creating it if not -#
-    if not os.path.isdir(os.path.join(CONFIG["system"]["directories"]["bin_directory"],"IC_Logs")):
-        pt.Path.mkdir(pt.Path(os.path.join(CONFIG["system"]["directories"]["bin_directory"],"IC_Logs")),parents=True)
+    # - Checking that the correct directory exists first and creating it if not -#
+    if not os.path.isdir(os.path.join(CONFIG["system"]["directories"]["bin_directory"], "IC_Logs")):
+        pt.Path.mkdir(pt.Path(os.path.join(CONFIG["system"]["directories"]["bin_directory"], "IC_Logs")), parents=True)
 
-    #- Checking if there is already a file -#
-    log_path = os.path.join(CONFIG["system"]["directories"]["bin_directory"],"IC_Logs","IC_log.log") # generating the log path.
+    # - Checking if there is already a file -#
+    log_path = os.path.join(CONFIG["system"]["directories"]["bin_directory"], "IC_Logs",
+                            "IC_log.log")  # generating the log path.
     if not os.path.exists(log_path):
         # The file doesn't exist, so we make it #
-        with open(log_path,"w+") as f:
-            pass # Creates the file and then closes.
+        with open(log_path, "w+") as f:
+            pass  # Creates the file and then closes.
 
         # return an empty iclog item #
         iclog = {}
@@ -329,21 +336,20 @@ def add_ic_file(file,**kwargs):
 
     # Adding the file to the IC log
     ####################################################################################################################
-    file_name = pt.Path(file).name # grab just the name and remove parents.
+    file_name = pt.Path(file).name  # grab just the name and remove parents.
 
     ##- is there already an entry? -##
-    if file_name in iclog: # there is a matching key.
-        log_print("%s already exists in the IC log. Replacing it."%file_name,fdbg_string,"warning")
-
-        for key,value in kwargs.items(): # cycle through all of the kwargs.
-            iclog[file_name][key] = value
-
-    else: # that key doesn't exist yet.
-        iclog[file_name] = {}
+    if file_name in iclog:  # there is a matching key.
+        log_print("%s already exists in the IC log. Replacing it." % file_name, fdbg_string, "warning")
 
         for key, value in kwargs.items():  # cycle through all of the kwargs.
             iclog[file_name][key] = value
 
+    else:  # that key doesn't exist yet.
+        iclog[file_name] = {}
+
+        for key, value in kwargs.items():  # cycle through all of the kwargs.
+            iclog[file_name][key] = value
 
     # Adding basic info
     ####################################################################################################################
@@ -354,17 +360,19 @@ def add_ic_file(file,**kwargs):
     ####################################################################################################################
     os.remove(log_path)
 
-    with open(log_path,"w+") as f:
-        toml.dump(iclog,f)
+    with open(log_path, "w+") as f:
+        toml.dump(iclog, f)
+
 
 def read_ic_log():
-    log_path = os.path.join(CONFIG["system"]["directories"]["bin_directory"],"IC_Logs","IC_log.log")
+    log_path = os.path.join(CONFIG["system"]["directories"]["bin_directory"], "IC_Logs", "IC_log.log")
     return toml.load(log_path)
+
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Functions -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-def print_simulation_log(file: str = _simulation_logs_directory,location=None,calcs=None,simlog=None):
+def print_simulation_log(file: str = _simulation_logs_directory, location=None, calcs=None, simlog=None):
     """
     Prints the current simulation log.
     Parameters
@@ -376,7 +384,7 @@ def print_simulation_log(file: str = _simulation_logs_directory,location=None,ca
 
     """
     ### Setting up ###
-    headers = ["SimulationName", "SimulationType", "Description", "NSnapshots"] # grabbing headers
+    headers = ["SimulationName", "SimulationType", "Description", "NSnapshots"]  # grabbing headers
 
     if not simlog:
         simlog = read_simulation_log(file=file)
@@ -409,23 +417,26 @@ def print_simulation_log(file: str = _simulation_logs_directory,location=None,ca
             print("|", end="")
             if not simulation == location:
                 for id, header in enumerate(headers):
-                    if isinstance(sim_values,dict) and header in sim_values: # Is the header in sim_values?
-                        color = (Fore.GREEN+Style.BRIGHT if header == "SimulationName" else "")
-                        print(" %s%s%s%s|"%(color,sim_values[header],Style.RESET_ALL," "*(calcs[1][simulation][header]-1)),end="")
+                    if isinstance(sim_values, dict) and header in sim_values:  # Is the header in sim_values?
+                        color = (Fore.GREEN + Style.BRIGHT if header == "SimulationName" else "")
+                        print(" %s%s%s%s|" % (
+                        color, sim_values[header], Style.RESET_ALL, " " * (calcs[1][simulation][header] - 1)), end="")
                     else:
-                        print("%s|"%((calcs[0][id]*" ")),end="")
+                        print("%s|" % ((calcs[0][id] * " ")), end="")
                 print('')
             else:
                 for id, header in enumerate(headers[:-1]):
                     if isinstance(sim_values, dict) and header in sim_values:  # Is the header in sim_values?
-                        print("%s %s%s|" % (Fore.BLACK+Back.WHITE,sim_values[header], " " * (calcs[1][simulation][header] - 1)), end="")
+                        print("%s %s%s|" % (
+                        Fore.BLACK + Back.WHITE, sim_values[header], " " * (calcs[1][simulation][header] - 1)), end="")
                     else:
-                        print("%s%s|" % (Fore.BLACK+Back.WHITE,(calcs[0][id] * " ")), end="")
+                        print("%s%s|" % (Fore.BLACK + Back.WHITE, (calcs[0][id] * " ")), end="")
                 if isinstance(sim_values, dict) and headers[-1] in sim_values:  # Is the header in sim_values?
                     print("%s %s%s%s|" % (
-                    Fore.BLACK + Back.WHITE, sim_values[header], " " * (calcs[1][simulation][header] - 1),Style.RESET_ALL), end="")
+                        Fore.BLACK + Back.WHITE, sim_values[header], " " * (calcs[1][simulation][header] - 1),
+                        Style.RESET_ALL), end="")
                 else:
-                    print("%s%s%s|" % (Fore.BLACK + Back.WHITE, (calcs[0][-1] * " "),Style.RESET_ALL), end="")
+                    print("%s%s%s|" % (Fore.BLACK + Back.WHITE, (calcs[0][-1] * " "), Style.RESET_ALL), end="")
                 print("")
     print("+", end="")
     for id, header in enumerate(headers): print(("-" * calcs[0][id]) + "+", end="")
@@ -437,5 +448,3 @@ def print_simulation_log(file: str = _simulation_logs_directory,location=None,ca
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT")
-    from PyCS_System.text_utils import set_simulation_information
-
