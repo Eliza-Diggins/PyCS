@@ -1,7 +1,6 @@
 """
 Basic utils to be used.
 """
-import os
 
 
 def split(a, n):

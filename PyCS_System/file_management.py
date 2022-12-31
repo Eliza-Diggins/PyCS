@@ -18,9 +18,10 @@ import time
 from colorama import Fore, Style
 import numpy as np
 import threading as t
+import warnings
 
 # generating screen locking #
-screen_lock = t.Semaphore(value=1) # locks off multi-threaded screen.
+screen_lock = t.Semaphore(value=1)  # locks off multi-threaded screen.
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -29,6 +30,9 @@ _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
 
+# - managing warnings -#
+if not CONFIG["system"]["logging"]["warnings"]:
+    warnings.filterwarnings('ignore')
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Fixed Variables ----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -38,7 +42,7 @@ _location_setting_names = {  # Here, we store all of the settings that we are go
     "movies_directory": "Movies",
     "initial_conditions_directory": "Initial Conditions",
     "RAMSES_nml_directory": "NML Files",
-    "reports_directory":"Reports"
+    "reports_directory": "Reports"
 }
 _file_header_dict = {  # Stores all of the relative paths (local,box)
     CONFIG["system"]["directories"][item]: CONFIG["files"]["rclone"]["headers"][item] for item in

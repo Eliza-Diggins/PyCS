@@ -4,19 +4,21 @@
 
 """
 import os
-import sys
 import pathlib as pt
+import sys
 
 # adding the system path to allow us to import the important modules
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
-from PyCS_Core.Logging import set_log, log_print, make_error
-from PyCS_System.text_utils import file_select,print_title, get_options
+from PyCS_Core.Logging import set_log, log_print
+from PyCS_System.text_utils import print_title, get_options
 from PyCS_System.SimulationMangement import add_ic_file
 from PyCS_System.SpecConfigs import read_clustep_config, write_clustep_ini, write_slurm_script
 import pathlib as pt
 import argparse
 import time
+import warnings
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -25,9 +27,12 @@ _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
 
-clustep_exec = CONFIG["system"]["executables"]["CLUSTEP_install"]
-params_ini = os.path.join(clustep_exec,"params_cluster.ini")
+# - managing warnings -#
+if not CONFIG["system"]["logging"]["warnings"]:
+    warnings.filterwarnings('ignore')
 
+clustep_exec = CONFIG["system"]["executables"]["CLUSTEP_install"]
+params_ini = os.path.join(clustep_exec, "params_cluster.ini")
 
 ### __command variables for use with SLURM
 __command_variables_batch = """
@@ -83,15 +88,15 @@ cd $WORKDIR
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     ### Starting the argparser ###
-    parser = argparse.ArgumentParser() # setting up the command line argument parser
-    parser.add_argument("-o","--output_type",type=str,default="FILE",help="The type of output to use for logging.")
-    parser.add_argument("-l","--logging_level",type=int,default=10,help="The level of logging to use.")
-    parser.add_argument("-nb","--no_batch",action="store_true",help="Use batch to run.")
+    parser = argparse.ArgumentParser()  # setting up the command line argument parser
+    parser.add_argument("-o", "--output_type", type=str, default="FILE", help="The type of output to use for logging.")
+    parser.add_argument("-l", "--logging_level", type=int, default=10, help="The level of logging to use.")
+    parser.add_argument("-nb", "--no_batch", action="store_true", help="Use batch to run.")
     args = parser.parse_args()
 
     ### Setting up logging ###
-    set_log(_filename,output_type=args.output_type,level=args.logging_level)
-    log_print("Running run_BinaryICs.py",_dbg_string,"debug")
+    set_log(_filename, output_type=args.output_type, level=args.logging_level)
+    log_print("Running run_BinaryICs.py", _dbg_string, "debug")
     time.sleep(0.1)
 
     ### Getting the settings ###
@@ -99,47 +104,47 @@ if __name__ == '__main__':
         "General":
             {
                 "Impact Parameter": (0, 0, "The impact parameter for the collision in kpc."),
-                "Initial Distance": (3000,3000,"The initial separation between the clusters (kpc)"),
+                "Initial Distance": (3000, 3000, "The initial separation between the clusters (kpc)"),
                 "Relative Velocity": (1000, 1000, "The initial relative velocity in km/s")
             },
         "Cluster 1": read_clustep_config(),
         "Cluster 2": read_clustep_config()
     }
-    #MAIN
-########################################################################################################################
-    print_title("run_BinaryICs 1.0","Eliza Diggins")
+    # MAIN
+    ########################################################################################################################
+    print_title("run_BinaryICs 1.0", "Eliza Diggins")
     # Selecting a valid slurm file #
-    __binary_options_dict = get_options(__binary_options_dict,"Collision Options")
-
+    __binary_options_dict = get_options(__binary_options_dict, "Collision Options")
 
     # Getting output name
-########################################################################################################################
-    out_name = input("%sPlease enter a filename for the output. [""] to auto generate. "%_dbg_string)
-    if  out_name == "":
-        clusters = [file for file in os.listdir(CONFIG["system"]["directories"]["initial_conditions_directory"]) if "Col" in file]
-        n = len(clusters)+1
-        out_name = "Col_%s.dat"%n
+    ########################################################################################################################
+    out_name = input("%sPlease enter a filename for the output. [""] to auto generate. " % _dbg_string)
+    if out_name == "":
+        clusters = [file for file in os.listdir(CONFIG["system"]["directories"]["initial_conditions_directory"]) if
+                    "Col" in file]
+        n = len(clusters) + 1
+        out_name = "Col_%s.dat" % n
 
-    log_print("Generating %s."%out_name,_dbg_string,"info")
+    log_print("Generating %s." % out_name, _dbg_string, "info")
 
     # Adding to the IC LOG
     ####################################################################################################################
-    #- grabbing the second parameter file storage location -#
+    # - grabbing the second parameter file storage location -#
     param_file_path = str(os.path.join(CONFIG["system"]["directories"]["parameter_directory"],
-                                   out_name.replace(".dat",""),
-                                   "param_%s.ini"))
+                                       out_name.replace(".dat", ""),
+                                       "param_%s.ini"))
 
-    #- generating the directory if necessary -#
+    # - generating the directory if necessary -#
     if not os.path.isdir(pt.Path(param_file_path).parents[0]):
-        pt.Path.mkdir(pt.Path(param_file_path).parents[0],parents=True)
+        pt.Path.mkdir(pt.Path(param_file_path).parents[0], parents=True)
 
-    #- spawn in the correct parameters file -#
-    for id in ["1","2"]:
-        write_clustep_ini(__binary_options_dict["Cluster %s"%id],param_file_path%id)
+    # - spawn in the correct parameters file -#
+    for id in ["1", "2"]:
+        write_clustep_ini(__binary_options_dict["Cluster %s" % id], param_file_path % id)
 
-    #- adding everything to the log -#
-    add_ic_file(os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"],out_name),
-                param_files=[param_file_path%i for i in ["1","2"]],
+    # - adding everything to the log -#
+    add_ic_file(os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"], out_name),
+                param_files=[param_file_path % i for i in ["1", "2"]],
                 type="cluster-binary")
 
     # Running
@@ -158,14 +163,14 @@ if __name__ == '__main__':
 
         snapgadet_command = "%s %s %s %s %s %s %s 0 %s 0 0" % (snapgadet_params)
         # Creating the command sequence.
-        command_string = __command_variables_nobatch%(
+        command_string = __command_variables_nobatch % (
             str(pt.Path(os.path.realpath(__file__)).parents[1]),
             CONFIG["system"]["executables"]["python_full"],
             clustep_exec,
-            param_file_path%"1",
+            param_file_path % "1",
             clustep_exec,
             CONFIG["system"]["directories"]["temp_directory"],
-            param_file_path%"2",
+            param_file_path % "2",
             clustep_exec,
             CONFIG["system"]["directories"]["temp_directory"],
             snapgadet_command
@@ -174,27 +179,27 @@ if __name__ == '__main__':
     ########################################################################################################################
     else:
         # Getting snapjoin set up.
-    ########################################################################################################################
-        snapgadet_params = (os.path.join(CONFIG["system"]["executables"]["SnapGadget_install"],"snapjoin.py"),
+        ########################################################################################################################
+        snapgadet_params = (os.path.join(CONFIG["system"]["executables"]["SnapGadget_install"], "snapjoin.py"),
                             os.path.join(CONFIG["system"]["directories"]["temp_directory"], "cluster1.dat"),
                             os.path.join(CONFIG["system"]["directories"]["temp_directory"], "cluster2.dat"),
-                            os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"],out_name),
+                            os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"], out_name),
                             __binary_options_dict["General"]["Initial Distance"][0],
                             __binary_options_dict["General"]["Impact Parameter"][0],
                             __binary_options_dict["General"]["Relative Velocity"][0])
 
-        snapgadet_command = "python %s %s %s %s %s %s 0 %s 0 0"%snapgadet_params
+        snapgadet_command = "python %s %s %s %s %s %s 0 %s 0 0" % snapgadet_params
         # Creating the command sequence.
-    ########################################################################################################################
-        command_string = __command_variables_batch%(
+        ########################################################################################################################
+        command_string = __command_variables_batch % (
             str(pt.Path(os.path.realpath(__file__)).parents[1]),
             clustep_exec,
-            param_file_path%"1",
+            param_file_path % "1",
             clustep_exec,
             CONFIG["system"]["directories"]["temp_directory"],
-            param_file_path%"2",
+            param_file_path % "2",
             clustep_exec,
             CONFIG["system"]["directories"]["temp_directory"],
             snapgadet_command
         )
-        write_slurm_script(command_string,type="BINARY_BUILD")
+        write_slurm_script(command_string, type="BINARY_BUILD")

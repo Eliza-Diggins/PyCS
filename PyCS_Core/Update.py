@@ -5,13 +5,11 @@ System Updater
 
 """
 import os
-import sys
 import pathlib as pt
-import toml
+import sys
 
 # adding the system path to allow us to import the important modules
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
-import utils as utils
 from colorama import Fore, Style
 import shutil
 import tomlkit as t
@@ -42,12 +40,12 @@ def update_dict(master: dict, local: dict) -> dict:
     master_keys, local_keys = master.keys(), local.keys()  # grab all of the keys
 
     for master_key in list(master_keys):  # cycle through each of the master keys
-        if isinstance(master[master_key],dict) and master_key in local:
+        if isinstance(master[master_key], dict) and master_key in local:
             master[master_key] = update_dict(master[master_key], local[master_key])
-        elif isinstance(master[master_key],dict) and master_key not in local:
+        elif isinstance(master[master_key], dict) and master_key not in local:
             pass
         else:
-            if master_key in list(local_keys):
+            if master_key in list(local_keys) and master_key != "version":
                 ### There is a local match ###
                 master[master_key] = local[master_key]
             else:
@@ -78,10 +76,10 @@ def make_files_recur(location: str, file: dict, level=0):
                     else:
                         print(
                             "%s%sFailed to find directory at pointer in the CONFIG.ini file. Making directory %s at location %s." % (
-                            fdbg_string,
-                            "\t" * level,
-                            directory,
-                            temp_setting_path))
+                                fdbg_string,
+                                "\t" * level,
+                                directory,
+                                temp_setting_path))
                         pt.Path.mkdir(pt.Path(os.path.join(temp_setting_path)),
                                       parents=True)
                 else:
@@ -117,9 +115,8 @@ def make_files_recur(location: str, file: dict, level=0):
                     pt.Path.mkdir(pt.Path(os.path.join(location, directory)),
                                   parents=True)
 
-
             if file["files"][directory]["files"] != None:
-                make_files_recur(os.path.join(location,directory),file["files"][directory],level=level+1)
+                make_files_recur(os.path.join(location, directory), file["files"][directory], level=level + 1)
     else:
         ### we've run out of room.
         pass
@@ -156,7 +153,7 @@ if __name__ == '__main__':
             "%sNo installation ticket was found. Please try reinstalling or create a ticket. Press any key to exit..." % fdbg_string)
         exit()
 
-    #- Reading the installation ticket if it exists -#
+    # - Reading the installation ticket if it exists -#
     print("%sReading installation ticket..." % fdbg_string, end=" ")
     with open(os.path.join(str(pt.Path(os.path.realpath(__file__)).parents[0]).replace(".py", ""), "tkt",
                            "ticket.INSTALL_TICKET"), "r") as file:
@@ -188,10 +185,9 @@ if __name__ == '__main__':
     local_configs = [file for file in os.listdir(__local_configs_path) if ".ini" in file]
     master_configs = [file for file in os.listdir(__install_config_file_path) if ".ini" in file]
 
-    #- updating the configuration files -#
+    # - updating the configuration files -#
     print("%sFound %s local configs and %s master configs. Updating..." % (
-    fdbg_string, len(local_configs), len(master_configs)))
-
+        fdbg_string, len(local_configs), len(master_configs)))
 
     for master_config in master_configs:
         # We cycle through each of these looking for any issues #
@@ -209,14 +205,14 @@ if __name__ == '__main__':
                 master_config) + Style.RESET_ALL + ". Resolving conflicts...", end=" ")
 
             # reading the master toml file
-            with open(os.path.join(__install_config_file_path,master_config),"r+") as file:
+            with open(os.path.join(__install_config_file_path, master_config), "r+") as file:
                 temp_config_master = t.load(file)
-            with open(os.path.join(__local_configs_path,master_config),"r+") as file:
+            with open(os.path.join(__local_configs_path, master_config), "r+") as file:
                 temp_config_local = t.load(file)
             # resolved config #
             resolved_config = update_dict(temp_config_master, temp_config_local)
 
-            #- updating the file -#
+            # - updating the file -#
             os.remove(os.path.join(__local_configs_path, master_config))
             with open(os.path.join(__local_configs_path, master_config), "w+") as file:
                 t.dump(resolved_config, file)
@@ -228,7 +224,7 @@ if __name__ == '__main__':
     # --------------------------------------------------------#
     from PyCS_Core.Install import install_files
 
-    with open(os.path.join(__local_configs_path, "CONFIG.ini"),"r+") as file:
+    with open(os.path.join(__local_configs_path, "CONFIG.ini"), "r+") as file:
         installation_config = t.load(file)
 
     print("%sGenerating new directories of the installation." % fdbg_string, end=" ")
