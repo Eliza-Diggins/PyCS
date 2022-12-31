@@ -8,11 +8,13 @@ import pathlib as pt
 import os
 
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
+from copy import deepcopy
 import argparse
 from PyCS_Core.Configuration import read_config, _configuration_path
 from PyCS_Core.Logging import set_log, log_print, make_error
 import pathlib as pt
 from PyCS_System.SimulationMangement import read_ic_log
+from PyCS_System.SpecConfigs import read_clustep_ini
 import toml
 from datetime import datetime
 import pynbody as pyn
@@ -22,6 +24,7 @@ from PyCS_System.text_utils import file_select, print_title
 from PyCS_Analysis.Images import make_plot
 from PyCS_Analysis.Profiles import make_profile_plot, make_profiles_plot
 from PyCS_Analysis.Analysis_Utils import split_binary_collision, find_gas_COM
+from PyCS_Analysis.builtin_functions import dehnen_profile,dehnen_mass_profile
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -38,6 +41,7 @@ __profile_config = {
         "logx": True,
         "logy": True,
         "title": "Cluster Density",
+        "units_x":"kpc"
     },
     "temp": {
         "logx": True,
@@ -95,7 +99,8 @@ __multi_profile_config = [
           "q_kwargs": {"family": "dm",
                        "color": "black",
                        "ls": "-",
-                       "label": r"$M_{\mathrm{dm}}(<r)$"}
+                       "label": r"$M_{\mathrm{dm}}(<r)$",
+                       "Lambda":lambda x: x**3}
           },
          {"quantity": "mass_enc",
           "q_kwargs": {"color": "blue",
@@ -115,6 +120,81 @@ __line_config = {
     "color": "k",
     "marker": "s"
 }
+
+# --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+# ---------------------------------------------------- Functions --------------------------------------------------------#
+# --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+def get_theoretical_lambda(qty,parameter_dict,**kwargs):
+    """
+    Uses the specified ``qty`` and ``parameter_dict`` to determine the correct theoretical profile to return as a
+    lambda function. if ``family`` is unspecified, then we will consider all of the available families.
+
+    Parameters
+    ----------
+    qty: The quantity that is being plotted.
+    parameter_file: the parameter datafile dictionary to pull values from.
+
+    Returns: a lambda function of the correct theoretical profile.
+    -------
+
+    """
+    # Intro debugging
+    ####################################################################################################################
+    fdbg_string = "%s:get_theoretical_lambda: "%_dbg_string
+    log_print("Generating %s profile for the given IC file."%qty,fdbg_string,"debug")
+    # Setup
+    ####################################################################################################################
+    #- Coercing family kwargs into the correct form for this use -#
+    family = []
+    if "family" in kwargs:
+        if kwargs["family"] != "gas":
+            # the family is specified, but isn't gas. We expect this case to be "dm" from the __param_dicts, but we need to change it.
+            family = ["dark_matter"]
+        elif kwargs["family"] == "gas":
+            family = ["gas"]
+    else:
+        family=["gas","dark_matter"]
+
+    #- unit_fetch and coercion
+    # here we control all of the parameter data in order to get the right units.
+    parameter_dict["gas"]["M_gas"] = parameter_dict["gas"]["M_gas"]*(1e10)*pyn.units.Unit("Msol")
+    parameter_dict["gas"]["a_gas"] = parameter_dict["gas"]["a_gas"]*(pyn.units.Unit("kpc"))
+    parameter_dict["dark_matter"]["M_dm"] = parameter_dict["dark_matter"]["M_dm"]*(1e10)*pyn.units.Unit("Msol")
+    parameter_dict["dark_matter"]["a_dm"] = parameter_dict["dark_matter"]["a_dm"]*(pyn.units.Unit("kpc"))
+
+    kwgs = {}
+    if "units_x" in kwargs:
+        kwgs["independent_unit"] = kwargs["units_x"]
+    if "units_y" in kwargs:
+        kwgs["dependent_unit"] = kwargs["units_y"]
+    # Generating the correct profiles
+    ####################################################################################################################
+    lambdas = []
+    under_labels = {"gas":"gas","dark_matter":"dm"}
+    #- generating the functions -#
+    for fam in family: # cycle through all of the families
+        if qty == "density":
+            #- Managing the Dehnen profile -#
+            lambdas.append(dehnen_profile(parameter_dict[fam]["M_%s"%under_labels[fam]],
+                                          parameter_dict[fam]["gamma_%s"%under_labels[fam]],
+                                          parameter_dict[fam]["a_%s"%under_labels[fam]],
+                                          **kwgs))
+        elif qty == "mass_enc":
+            lambdas.append(dehnen_mass_profile(parameter_dict[fam]["M_%s"%under_labels[fam]],
+                                          parameter_dict[fam]["gamma_%s"%under_labels[fam]],
+                                          parameter_dict[fam]["a_%s"%under_labels[fam]],
+                                          **kwgs))
+        else:
+            return None
+
+    # Returning
+    ####################################################################################################################
+    if len(lambdas) > 1:
+        return lambda r: np.sum([l(r) for l in lambdas],axis=0)
+    else:
+        return lambdas[0]
+
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ MAIN -----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -243,23 +323,38 @@ if __name__ == '__main__':
     #   Finished writing the bulk of the report data. Now we produce the profiles.
     #
     ####################################################################################################################
+    # Computing the correct profiles for the given IC
+    ####################################################################################################################
+    #- fetching the parameter files -#
+    params_files = log_data["param_files"] # grab the parameter file locations.
+
+    #- grabbing the data from the parameter files
+    parameter_data = [read_clustep_ini(file) for file in params_files] # reading
+
     # Managing profiles
     ####################################################################################################################
     if not log_data["type"] == "cluster-binary":
         # - This is not a binary, so we pass through as usual.
         save_location = os.path.join(report_dir, report_name, "%s.png")
-
         for key, value in __profile_config.items():  # cycle through all of the profile items.
             make_profile_plot(
                 snapshot,
                 key,
                 save=True,
                 end_file=save_location % key,
+                Lambda=get_theoretical_lambda(key,parameter_dict=deepcopy(parameter_data[0]),**value),
+                Lambda_label="%s (Theory)"%value["title"],
                 **value,
                 **__line_config
             )
             #- Creating the multi-pass profiles -#
         for plot in __multi_profile_config:
+            ##- Managing lambdas -##
+            for group in plot["dat"]:
+                group["q_kwargs"]["Lambda"]=get_theoretical_lambda(group["quantity"],
+                                                                    parameter_dict=deepcopy(parameter_data[0]),
+                                                                    **group["q_kwargs"])
+                group["q_kwargs"]["Lambda_label"] = group["q_kwargs"]["label"] + " (Theory)"
             make_profiles_plot(
                 snapshot,
                 plot["dat"],
@@ -278,11 +373,18 @@ if __name__ == '__main__':
                     key,
                     save=True,
                     end_file=save_location % (key, id),
+                    Lambda=get_theoretical_lambda(key, parameter_dict=deepcopy(parameter_data[int(id)-1]), **value),
+                    Lambda_label="%s (Theory)" % value["title"],
                     **value,
                     **__line_config
                 )
                 # - Creating the multi-pass profiles -#
             for plot in __multi_profile_config:
+                for group in plot["dat"]:
+                    group["q_kwargs"]["Lambda"] = get_theoretical_lambda(group["quantity"],
+                                                                         parameter_dict=deepcopy(parameter_data[int(id)-1]),
+                                                                         **group["q_kwargs"])
+                    group["q_kwargs"]["Lambda_label"] = group["q_kwargs"]["label"] + " (Theory)"
                 make_profiles_plot(
                     subsnap,
                     plot["dat"],

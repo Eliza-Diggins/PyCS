@@ -280,6 +280,62 @@ def write_clustep_ini(dict,filename):
             for option in dict[header]:
                 file.write("%s=%s\n"%(option,str(dict[header][option][0])))
 
+def read_clustep_ini(file_path):
+    """
+    Read the Clustep parameter file at the given file_path.
+    Parameters
+    ----------
+    file_path: the location
+
+    Returns: dictionary with data in the parameter file
+    -------
+
+    """
+    data = {} # holds the data to return
+    current_header = None # keeps track of the current header in the toml file
+    # Reading the data file
+    ####################################################################################################################
+    with open(file_path,"r+") as file:
+        d = file.read()
+
+    # Manipulating the data
+    ####################################################################################################################
+    for line in [l for l in d.split("\n") if len(l) != 0]:
+        #- Removing spaces -#
+        line.replace(" ","")
+
+        #- detecting headers -#
+        if line[0]=="[": #this is a header line
+            header_string = line[1:].split("]")[0] # grab the header name and add to data.
+            data[header_string] = {}
+
+            ##- setting the current header to know where we are -##
+            current_header=header_string
+        else:
+            #- this is a normal line -#
+
+            ##- Removing ; comments from the line -##
+            if ";" in line: # there is a comment that we need to remove
+                line = line.split(";")[0] # remove the comment
+
+            #- adding the key,value combination to data -#
+            key,value = line.split("=")
+
+            ##- Trying to convert to float if possible -##
+            try:
+                value = float(value)
+            except Exception:
+                pass
+
+            #- Storing the data in the correct place -#
+            if not current_header:
+                data[key] = value
+            else:
+                data[current_header][key] = value
+    # Returning
+    ####################################################################################################################
+    return data
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------- Main ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -287,4 +343,4 @@ if __name__ == '__main__':
     set_log(_filename, output_type="FILE")
     from PyCS_System.text_utils import get_options
 
-    write_nml(get_options(read_RAMSES_config(),"RAMSES Settings"),name="testies.nml")
+    print(read_clustep_ini("/home/ediggins/PyCS/Parameter_Files/Clu_3/param_1.ini"))

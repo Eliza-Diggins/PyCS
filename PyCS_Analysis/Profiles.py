@@ -312,7 +312,7 @@ def make_profiles_plot(snapshot,
         if not "Lambda" in quantity["q_kwargs"]:
             quantity["q_kwargs"]["Lambda"] = None
             quantity["q_kwargs"]["Lambda_label"]=None
-        elif not "Lambda_Label" in quantity["q_kwargs"]:
+        elif not "Lambda_label" in quantity["q_kwargs"]:
             quantity["q_kwargs"]["Lambda_label"]=None
 
         #- managing kwargs in the main set that need to be moved to the output set -#
@@ -409,7 +409,6 @@ def _raw_make_profile_plot(snapshot,
     ####################################################################################################################
     fdbg_string = "%s_raw_make_profile_plot: " % _dbg_string
     log_print("Generating %s profile plot for snapshot %s." % (qty, snapshot), fdbg_string, "debug")
-
     # Managing profile kwargs
     ####################################################################################################################
     _prof_kwargs = {}  # these are the kwargs we will pass in
@@ -544,13 +543,7 @@ if __name__ == '__main__':
     data.g["rho"] = pyn.sph.rho(data.g)
     make_profiles_plot(data,[{
             "quantity":"density",
-            "q_kwargs":{"color":"black","Lambda":lambda x: x**2,"label":"Total Density"}},{"quantity":"density",
+            "q_kwargs":{"color":"black","Lambda":lambda x: x**2,"Lambda_label":"A label","label":"Total Density"}},{"quantity":"density",
             "q_kwargs":{"family":"gas","color":"r"}}],save=False,logy=True,logx=True,units_x="km",title="temp_title")
-    fig = plt.figure()
-    axes = fig.add_subplot(111)
-    _raw_make_profile_plot(data,"density",axes=axes,family="gas",logx=True,logy=True)
-    _raw_make_profile_plot(data,"density",axes=axes,logx=True,color="r",logy=True)
-    plt.legend()
-    plt.show()
 
 
