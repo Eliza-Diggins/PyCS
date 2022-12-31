@@ -14,7 +14,7 @@ from PyCS_Core.PyCS_Errors import *
 from scipy.integrate import solve_ivp
 import pynbody as pyn
 import warnings
-
+from copy import deepcopy
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -35,6 +35,7 @@ mass_fraction = 0.6  # The standard mass fraction. This value is from Schneider 
 boltzmann_constant = 1.381e-23 * pyn.units.Unit("J K^-1")
 G = 6.675e-11 * pyn.units.Unit("N m^2 kg^-2")
 m_p = 1.672621911e-27 * pyn.units.Unit("kg")
+rho_critical = 8.5e-27 * pyn.units.Unit("kg m^-3") # universe critical density.
 
 # - smoothing kernel -#
 smth_kern = lambda x: (1 / np.sqrt(2 * np.pi)) * np.exp((-(x) ** 2) / 5)
@@ -46,7 +47,34 @@ smth_kern = lambda x: (1 / np.sqrt(2 * np.pi)) * np.exp((-(x) ** 2) / 5)
 def smooth_func(function, bandwidth=10):
     return lambda r: np.convolve(function(r), np.ones(bandwidth) / bandwidth, mode="same")
 
+def find_rx(snapshot,p=500*rho_critical):
+    """
+    Determines the maximal radius of the ``snapshot`` at which the total density is >= ``p``.
+    Parameters
+    ----------
+    snapshot: The snapshot to analyze.
+    p: The density to look for.
 
+    Returns: The radius of the specified density.
+    -------
+
+    """
+    # Intro debugging
+    ####################################################################################################################
+    fdbg_string = "%sfind_rx: "
+    log_print("Looking for %s radius in %s."%(p,snapshot),fdbg_string,"debug")
+
+    # Setup
+    ####################################################################################################################
+    #- generating the necessary profile -#
+    profile = pyn.analysis.profile.Profile(snapshot,nbins=1000,ndim=3)
+
+    rbins,density = profile["rbins"],profile["density"]
+
+    # Computing
+    ####################################################################################################################
+    rbins = rbins[np.where(density >= p)]
+    return np.amax(rbins)
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Profiles -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -238,7 +266,7 @@ def get_collision_parameters(masses,
                              impact_parameter,
                              initial_velocity,
                              initial_separation,
-                             eta=50*pyn.units.Unit("kpc"),
+                             events=None,
                              time_length=10*pyn.units.Unit("Gyr"),
                              max_step=1*pyn.units.Unit("Myr")):
     """
@@ -283,7 +311,6 @@ def get_collision_parameters(masses,
         else:
             pass
 
-    print(masses,params)
     # Generating initial data
     ####################################################################################################################
     #- coercing units -#
@@ -298,30 +325,57 @@ def get_collision_parameters(masses,
     phi_0 = np.arctan(b/x_0)
 
 
+
     # Solving
     ####################################################################################################################
     function = lambda t,r: [r[1],-((G_temp*mass)/(r[0]**2)) + (b*v_0)**2/(r[0]**3),(b*v_0)/(r[0]**2)]
-    event_func = lambda t,y: y[0]-eta.in_units("km")
-    event_func.terminal=True
-    solved_data = solve_ivp(function,(0,time_length.in_units("s")),[r_0,dr_0,phi_0],events=event_func,max_step=max_step.in_units("s"),vectorized=True)
-
+    solved_data = solve_ivp(function,(0,time_length.in_units("s")),[r_0,dr_0,phi_0],events=events,max_step=max_step.in_units("s"),vectorized=True)
     # post_processing
     ####################################################################################################################
     solved_data.y[0] = solved_data.y[0]*pyn.units.Unit("km").ratio(pyn.units.Unit("kpc"))
     solved_data.t = solved_data.t *pyn.units.Unit("s").ratio(pyn.units.Unit("Gyr"))
+    #- Fixing the units of the events -#
+    for id,event in enumerate(solved_data.t_events):
+        if len(event) != 0:
+            solved_data.t_events[id] = [ev * pyn.units.Unit("s").ratio(pyn.units.Unit("Gyr")) for ev in event]
+
+
+
+    for id,event in enumerate(solved_data.y_events): # this iterates through each event function
+        # we fix the 0th id of all
+        if len(event) != 0:
+            solved_data.y_events[id][:,0] = [event_case[0] * pyn.units.Unit("km").ratio(pyn.units.Unit("kpc")) for event_case in event]
+
+
+    # creating the com information
+    solved_data.com_y_events = []
+    for id,event in enumerate(solved_data.y_events):
+        if len(event) != 0:
+            solved_data.com_y_events.append(np.array([[(-masses[0].in_units("Msol")/mass)*solved_data.y_events[id][j][0],
+                                                   (masses[1].in_units("Msol")/mass)*solved_data.y_events[id][j][0]] for j in range(len(event))]))
+        else:
+            solved_data.com_y_events.append(np.array([]))
+
 
     #- adding COM -#
     solved_data.com_y = [(-masses[0].in_units("Msol")/mass)*solved_data.y[0],(masses[1].in_units("Msol")/mass)*solved_data.y[0]]
     return solved_data
+
+
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     set_log(_filename, output_type="STDOUT")
-    data=get_collision_parameters([1e15,1e15],2,-1000,6)
-    print(data.t_events)
+    data=get_collision_parameters([1e15,1e15],2,-1000,6,events=[lambda t,y: y[0]-float(500*pyn.units.Unit("kpc").in_units("km")),
+                                                                lambda t,y: y[0]-float(1000*pyn.units.Unit("kpc").in_units("km"))])
+    print(data.t_events,data.com_y_events,data.y_events)
     plt.plot(data.com_y[0]*np.cos(data.y[2]),data.com_y[0]*np.sin(data.y[2]))
     plt.plot(data.com_y[1] * np.cos(data.y[2]), data.com_y[1] * np.sin(data.y[2]))
+    for y_event,com_event,c in zip(data.y_events,data.com_y_events,["red","green"]):
+        plt.scatter(com_event[:][0]*np.cos(y_event[0,2]),com_event[:][0]*np.sin(y_event[0,2]),color=c)
+        plt.scatter(com_event[:][1] * np.cos(y_event[1, 2]), com_event[:][1] * np.sin(y_event[1, 2]), color=c)
     plt.show()
     plt.plot(data.t,data.y[1])
     plt.plot(data.t,data.y[2])
+
     plt.show()

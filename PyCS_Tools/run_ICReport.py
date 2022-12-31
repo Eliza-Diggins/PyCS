@@ -21,12 +21,14 @@ import pynbody as pyn
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits import axisartist
+from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
 import numpy as np
 from PyCS_System.text_utils import file_select, print_title
 from PyCS_Analysis.Images import make_plot
 from PyCS_Analysis.Profiles import make_profile_plot, make_profiles_plot
 from PyCS_Analysis.Analysis_Utils import split_binary_collision, find_gas_COM
-from PyCS_Analysis.builtin_functions import dehnen_profile, dehnen_mass_profile, get_collision_parameters
+from PyCS_Analysis.builtin_functions import dehnen_profile, dehnen_mass_profile, get_collision_parameters,find_rx,rho_critical
 from colorama import Fore, Style
 import warnings
 
@@ -334,6 +336,10 @@ if __name__ == '__main__':
         print("%sGenerating collision data..." % fdbg_string, end="")
 
         #- grabbing the necessary data -#
+        # getting the critical radii
+        r_ns = [[find_rx(snap,p=p) for snap in binary_snapshots] for p in [2500*rho_critical,1000*rho_critical,500*rho_critical,200*rho_critical]]
+        rs = [r[0]+r[1] for r in r_ns]
+
         relative_location = [binary_coms[1][i]-binary_coms[0][i] for i in range(3)]
         initial_distance,impact_parameter = relative_location[0]*binary_coms[1].units,relative_location[1]*binary_coms[1].units
         masses = [np.sum(subsnap["mass"]) for subsnap in binary_snapshots]
@@ -342,11 +348,34 @@ if __name__ == '__main__':
 
         velocity = -1*(com_velocities[1]-com_velocities[0])[0]*com_velocities[0].units
 
-        data = get_collision_parameters(masses,impact_parameter,velocity,initial_distance)
+        #- making events -#
+        event1 = lambda t,y: y[0]-float(rs[0].in_units("km"))
+        event2 = lambda t, y: y[0] - float(rs[1].in_units("km"))
+        event3= lambda t, y: y[0] - float(rs[2].in_units("km"))
+        event4 = lambda t, y: y[0] - float(rs[3].in_units("km"))
+        event1.terminal=True
 
+        #- compiling data -#
+        data = get_collision_parameters(masses,impact_parameter,velocity,initial_distance,events=[event1,event2,event3,event4])
+
+        #- gathering data -#
+        r_2500_events,r_1000_events,r_500_events,r_200_events = tuple((i,j,k) for i,j,k in zip(data.t_events,data.y_events,data.com_y_events))
+
+        r_events = [item for item in [r_2500_events,r_1000_events,r_500_events,r_200_events] if len(item[0]) != 0]
+        r_labels = [item for id,item in enumerate([2500,1000,500,200]) if len([r_2500_events,r_1000_events,r_500_events,r_200_events][id]) != 0]
+
+        print(r_events,r_labels)
         # Adding to report
         ################################################################################################################
+        #- adding r_n values -#
+        for r_n,type in zip(r_ns,[2500,1000,500,200]):
+            for cluster_id,r in zip(["1","2"],r_n):
+                report_data["Cluster %s"%cluster_id]["r_%s"%type] = "%s %s"%(np.round(r.in_units("kpc"),decimals=2),"kpc")
 
+        for event,type in zip(r_events,r_labels):
+            report_data["General"]["Collision Time (r_%s)"%type] = str(["%s "%np.round(i,decimals=2,) for i in event[0]])+" Gyr"
+            report_data["General"]["Relative Collision Velocity (r_%s)" % type] = str(
+                ["%s " % np.round(i[1], decimals=2, ) for i in event[1]]) + " km s^-1"
         # Generating and saving the correct plots
         ################################################################################################################
         #- trajectory plot -#
@@ -354,12 +383,26 @@ if __name__ == '__main__':
         axes = fig.add_subplot(111)
 
         ##- plotting -##
-        axes.plot(data.com_y[0] * np.cos(data.y[2]), data.com_y[0] * np.sin(data.y[2]),label="Cluster 1",color="red")
-        axes.plot(data.com_y[1] * np.cos(data.y[2]), data.com_y[1] * np.sin(data.y[2]),label="Cluster 2",color="blue")
-        axes.plot(data.com_y[0][0] * np.cos(data.y[2][0]), data.com_y[0][0] * np.sin(data.y[2][0]),"o",color="red", label=r"$\mathrm{C}_{1,\mathrm{init}}$")
-        axes.plot(data.com_y[1][0] * np.cos(data.y[2][0]), data.com_y[1][0] * np.sin(data.y[2][0]),"o",color="blue", label=r"$\mathrm{C}_{2,\mathrm{init}}$")
-        axes.plot(data.com_y[0][-1] * np.cos(data.y[2][-1]), data.com_y[0][-1] * np.sin(data.y[2][-1]),"s",color="red", label=r"$\mathrm{C}_{1,\mathrm{final}}$")
-        axes.plot(data.com_y[1][-1] * np.cos(data.y[2][-1]), data.com_y[1][-1] * np.sin(data.y[2][-1]),"s",color="blue", label=r"$\mathrm{C}_{2,\mathrm{final}}$")
+        legend_handles = [] # We are going to use this to populate the legend.
+        axes.plot(data.com_y[0] * np.cos(data.y[2]), data.com_y[0] * np.sin(data.y[2]),color="red")
+        axes.plot(data.com_y[1] * np.cos(data.y[2]), data.com_y[1] * np.sin(data.y[2]),color="blue")
+        axes.plot(data.com_y[0][0] * np.cos(data.y[2][0]), data.com_y[0][0] * np.sin(data.y[2][0]),"o",color="red")
+        axes.plot(data.com_y[1][0] * np.cos(data.y[2][0]), data.com_y[1][0] * np.sin(data.y[2][0]),"o",color="blue")
+
+        legend_handles += [Line2D([],[],color="red",label=r"$C_1$"),Line2D([],[],color="blue",label=r"$C_2$")]
+        ##- adding events -##
+        markers = ["x","o","d",">"]
+        labels = [r"$R_{\mathrm{%s}}\;\mathrm{col.}\;t=%s \mathrm{Gyr}$"%(i,"%s") for i in r_labels]
+        for event,marker,label in zip(r_events,markers,labels):
+            # Now we need to add the correct positions.
+            event_t,event_y,event_com = event # split the event down to the singular parts.
+            for instance_t,instance_y,instance_com in zip(event_t,event_y,event_com):
+                axes.scatter(instance_com[0] * np.cos(instance_y[2]), instance_com[0] * np.sin(instance_y[2]),marker=marker,label="Cluster 1",color="red")
+                axes.scatter(instance_com[1] * np.cos(instance_y[2]), instance_com[1] * np.sin(instance_y[2]),marker=marker,label="Cluster 1",color="blue")
+
+                # managing the time labels #
+            time = np.round(event_t[0],decimals=2)
+            legend_handles += [Line2D([],[],color="black",marker=marker,label=label%time)]
         ##- asthetics -##
         axes.set_xlabel(r"$x$ [kpc]")
         axes.set_xlabel(r"$y$ [kpc]")
@@ -367,7 +410,7 @@ if __name__ == '__main__':
         axes.set_xlim([-initial_distance.in_units("kpc"),initial_distance.in_units("kpc")])
         axes.set_ylim([-initial_distance.in_units("kpc"),initial_distance.in_units("kpc")])
         plt.grid()
-        plt.legend()
+        plt.legend(handles=legend_handles)
         plt.savefig(os.path.join(report_dir, report_name, "Collision_trajectory.png"))
 
         #- time_distance plot -#
@@ -383,6 +426,9 @@ if __name__ == '__main__':
         axes2.plot(data.t[0],data.y[1][0],"o",color="blue", label=r"$\mathrm{C}_{1,\mathrm{init}}$")
         axes2.plot(data.t[-1],data.y[1][-1],"s",color="blue", label=r"$\mathrm{C}_{2,\mathrm{final}}$")
 
+        ##- adding critical rs -##
+        for r,n,ls in zip(rs,[2500,1000,500,200],["-","-.","--",":"]):
+            axes.hlines(xmin=0,xmax=1.2*np.amax(data.t),y=r.in_units("kpc"),label=r"$\sum r_{%s}$"%n,ls=ls,color="black")
         ##- asthetics -##
         axes2.axis["right"].toggle(all=True)
         axes.set_xlabel(r"$t$ [Gyr]")
@@ -511,7 +557,18 @@ if __name__ == '__main__':
               vmin=0.01,
               width="%s kpc" % int(2 * np.amax(snapshot["pos"][:, 0].in_units("kpc"))),
               title="Gas Temperature",
-              cmap=plt.cm.jet,
+              cmap=plt.cm.gist_ncar,
+              av_z=False)
+    make_plot(snapshot,
+              "temp",
+              families=["gas"],
+              save=True,
+              end_file=save_location % "temp-I",
+              log=False,
+              vmin=0.01,
+              width="%s kpc" % int(2 * np.amax(snapshot["pos"][:, 0].in_units("kpc"))),
+              title="Gas Temperature",
+              cmap=plt.cm.gist_ncar,
               av_z=True)
     print(done_string)
     print("%sGenerating density image.\t" % (fdbg_string), end="")
@@ -524,6 +581,16 @@ if __name__ == '__main__':
               title="Density",
               log=True,
               vmin=133,
-              cmap=plt.cm.viridis,
+              cmap=plt.cm.inferno,
+              av_z=False)
+    make_plot(snapshot,
+              "rho",
+              save=True,
+              end_file=save_location % "density-I",
+              width="%s kpc" % int(2 * np.amax(snapshot["pos"][:, 0].in_units("kpc"))),
+              title="Density",
+              log=True,
+              vmin=133,
+              cmap=plt.cm.inferno,
               av_z=True)
     print(done_string)
