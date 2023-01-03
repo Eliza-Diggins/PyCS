@@ -13,6 +13,7 @@ import numpy as np
 
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
+from PIL import Image
 import pynbody as pyn
 from PyCS_Core.Logging import set_log, log_print, make_error
 from PyCS_Analysis.Analysis_Utils import get_families, align_snapshot, make_pseudo_entropy
@@ -707,7 +708,6 @@ def generate_dm_baryon_image_sequence(simulation_directory, multiprocess=True, n
 # -----------------------------------------------------   MAIN   --------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
-    from PIL import Image
 
     set_log(_filename, output_type="FILE", level=10)
     generate_dm_baryon_image_sequence("/home/ediggins/PyCS/RAMSES_simulations/TestSim", multiprocess=False,

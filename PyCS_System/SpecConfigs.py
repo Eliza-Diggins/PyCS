@@ -14,6 +14,7 @@ from PyCS_Core.Logging import set_log, log_print, make_error
 import pathlib as pt
 import toml
 from datetime import datetime
+from PyCS_System.text_utils import get_options
 import warnings
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -265,8 +266,15 @@ def write_slurm_script(command_string: str,
     batch_settings = get_options(batch_default_settings, "Batch Settings")  # grabbing the proper settings
 
     for setting in ["BATCH_STD_OUT_FRMT", "BATCH_STD_ERR_FRMT"]:
-        batch_settings[setting] = tuple([os.path.join(CONFIG["system"]["directories"]["SLURM_directory"], "output",
+        batch_settings[setting] = tuple([os.path.join(CONFIG["system"]["directories"]["SLURM_directory"], "output",name.replace(".slurm",""),
                                                       batch_settings[setting][0])] + list(batch_settings[setting])[1:])
+
+    #- generating the ouput if it doesn't already exist -#
+    if not os.path.isdir(os.path.join(CONFIG["system"]["directories"]["SLURM_directory"], "output",name.replace(".slurm",""),
+                                                      batch_settings[setting][0])):
+        pt.Path.mkdir(pt.Path(os.path.join(CONFIG["system"]["directories"]["SLURM_directory"], "output",name.replace(".slurm",""))),parents=True)
+    else:
+        pass
     ### Writing the batch script ###
     with open(os.path.join(save_location, name), "w+") as file:  # Opening the file
         file.write("#!/bin/csh\n\n")
@@ -356,6 +364,5 @@ def read_clustep_ini(file_path):
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename, output_type="FILE")
-    from PyCS_System.text_utils import get_options
 
     print(read_clustep_ini("/home/ediggins/PyCS/Parameter_Files/Clu_3/param_1.ini"))
