@@ -139,7 +139,6 @@ def hydrostatic_mass(subsnap,
                                          (r >= r_vals[-1])],
                                      [int(i) for i in
                                       list(range(len(r_vals)))])  # generates the r-indexing array function
-    print(r_index(np.linspace(0, 5, 1000)).astype("int32"))
     # Generating the lambda-function
     ####################################################################################################################
     # - Coercing units -#

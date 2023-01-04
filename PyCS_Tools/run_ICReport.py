@@ -346,7 +346,7 @@ if __name__ == '__main__':
 
         com_velocities = [pyn.analysis.halo.center_of_mass_velocity(snap) for snap in binary_snapshots]
 
-        velocity = -1*(com_velocities[1]-com_velocities[0])[0]*com_velocities[0].units
+        velocity = (com_velocities[1]-com_velocities[0])[0]*com_velocities[0].units
 
         #- making events -#
         event1 = lambda t,y: y[0]-float(rs[0].in_units("km"))
@@ -364,7 +364,6 @@ if __name__ == '__main__':
         r_events = [item for item in [r_2500_events,r_1000_events,r_500_events,r_200_events] if len(item[0]) != 0]
         r_labels = [item for id,item in enumerate([2500,1000,500,200]) if len([r_2500_events,r_1000_events,r_500_events,r_200_events][id]) != 0]
 
-        print(r_events,r_labels)
         # Adding to report
         ################################################################################################################
         #- adding r_n values -#
