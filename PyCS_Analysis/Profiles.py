@@ -184,7 +184,6 @@ def fix_array_u(array, qty, units):
     -------
 
     """
-    print(array.units)
     if qty == "temp" and units != "K":
         return array * float(boltzmann.in_units("%s K^-1" % units)) * pyn.units.Unit("%s K^-1" % units)
     else:
@@ -557,7 +556,7 @@ def make_profiles_plot(snapshot,
     else:
         ndim = kwargs["ndim"]
     ##- Are units consistent? -##
-    if len(list(set(list([__quantities[qty]["unit"][ndim] for qty in quantities])))) > 1:
+    if len(list(set(list([__quantities[qty["quantity"]]["unit"][ndim] for qty in quantities])))) > 1:
         make_error(TypeError, fdbg_string, "Quantities %s are not compatible." % quantities)
 
     ##- Fixing internals -##

@@ -21,14 +21,14 @@ import pynbody as pyn
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits import axisartist
-from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 import numpy as np
 from PyCS_System.text_utils import file_select, print_title
 from PyCS_Analysis.Images import make_plot
 from PyCS_Analysis.Profiles import make_profile_plot, make_profiles_plot
 from PyCS_Analysis.Analysis_Utils import split_binary_collision, find_gas_COM
-from PyCS_Analysis.builtin_functions import dehnen_profile, dehnen_mass_profile, get_collision_parameters,find_rx,rho_critical
+from PyCS_Analysis.builtin_functions import dehnen_profile, dehnen_mass_profile, get_collision_parameters, find_rx, \
+    rho_critical
 from colorama import Fore, Style
 import warnings
 
@@ -335,107 +335,117 @@ if __name__ == '__main__':
         ################################################################################################################
         print("%sGenerating collision data..." % fdbg_string, end="")
 
-        #- grabbing the necessary data -#
+        # - grabbing the necessary data -#
         # getting the critical radii
-        r_ns = [[find_rx(snap,p=p) for snap in binary_snapshots] for p in [2500*rho_critical,1000*rho_critical,500*rho_critical,200*rho_critical]]
-        rs = [r[0]+r[1] for r in r_ns]
+        r_ns = [[find_rx(snap, p=p) for snap in binary_snapshots] for p in
+                [2500 * rho_critical, 1000 * rho_critical, 500 * rho_critical, 200 * rho_critical]]
+        rs = [r[0] + r[1] for r in r_ns]
 
-        relative_location = [binary_coms[1][i]-binary_coms[0][i] for i in range(3)]
-        initial_distance,impact_parameter = relative_location[0]*binary_coms[1].units,relative_location[1]*binary_coms[1].units
+        relative_location = [binary_coms[1][i] - binary_coms[0][i] for i in range(3)]
+        initial_distance, impact_parameter = relative_location[0] * binary_coms[1].units, relative_location[1] * \
+                                             binary_coms[1].units
         masses = [np.sum(subsnap["mass"]) for subsnap in binary_snapshots]
 
         com_velocities = [pyn.analysis.halo.center_of_mass_velocity(snap) for snap in binary_snapshots]
 
-        velocity = (com_velocities[1]-com_velocities[0])[0]*com_velocities[0].units
+        velocity = (com_velocities[1] - com_velocities[0])[0] * com_velocities[0].units
 
-        #- making events -#
-        event1 = lambda t,y: y[0]-float(rs[0].in_units("km"))
+        # - making events -#
+        event1 = lambda t, y: y[0] - float(rs[0].in_units("km"))
         event2 = lambda t, y: y[0] - float(rs[1].in_units("km"))
-        event3= lambda t, y: y[0] - float(rs[2].in_units("km"))
+        event3 = lambda t, y: y[0] - float(rs[2].in_units("km"))
         event4 = lambda t, y: y[0] - float(rs[3].in_units("km"))
-        event1.terminal=True
+        event1.terminal = True
 
-        #- compiling data -#
-        data = get_collision_parameters(masses,impact_parameter,velocity,initial_distance,events=[event1,event2,event3,event4])
+        # - compiling data -#
+        data = get_collision_parameters(masses, impact_parameter, velocity, initial_distance,
+                                        events=[event1, event2, event3, event4])
 
-        #- gathering data -#
-        r_2500_events,r_1000_events,r_500_events,r_200_events = tuple((i,j,k) for i,j,k in zip(data.t_events,data.y_events,data.com_y_events))
+        # - gathering data -#
+        r_2500_events, r_1000_events, r_500_events, r_200_events = tuple(
+            (i, j, k) for i, j, k in zip(data.t_events, data.y_events, data.com_y_events))
 
-        r_events = [item for item in [r_2500_events,r_1000_events,r_500_events,r_200_events] if len(item[0]) != 0]
-        r_labels = [item for id,item in enumerate([2500,1000,500,200]) if len([r_2500_events,r_1000_events,r_500_events,r_200_events][id]) != 0]
+        r_events = [item for item in [r_2500_events, r_1000_events, r_500_events, r_200_events] if len(item[0]) != 0]
+        r_labels = [item for id, item in enumerate([2500, 1000, 500, 200]) if
+                    len([r_2500_events, r_1000_events, r_500_events, r_200_events][id]) != 0]
 
         # Adding to report
         ################################################################################################################
-        #- adding r_n values -#
-        for r_n,type in zip(r_ns,[2500,1000,500,200]):
-            for cluster_id,r in zip(["1","2"],r_n):
-                report_data["Cluster %s"%cluster_id]["r_%s"%type] = "%s %s"%(np.round(r.in_units("kpc"),decimals=2),"kpc")
+        # - adding r_n values -#
+        for r_n, type in zip(r_ns, [2500, 1000, 500, 200]):
+            for cluster_id, r in zip(["1", "2"], r_n):
+                report_data["Cluster %s" % cluster_id]["r_%s" % type] = "%s %s" % (
+                np.round(r.in_units("kpc"), decimals=2), "kpc")
 
-        for event,type in zip(r_events,r_labels):
-            report_data["General"]["Collision Time (r_%s)"%type] = str(["%s "%np.round(i,decimals=2,) for i in event[0]])+" Gyr"
+        for event, type in zip(r_events, r_labels):
+            report_data["General"]["Collision Time (r_%s)" % type] = str(
+                ["%s " % np.round(i, decimals=2, ) for i in event[0]]) + " Gyr"
             report_data["General"]["Relative Collision Velocity (r_%s)" % type] = str(
                 ["%s " % np.round(i[1], decimals=2, ) for i in event[1]]) + " km s^-1"
         # Generating and saving the correct plots
         ################################################################################################################
-        #- trajectory plot -#
+        # - trajectory plot -#
         fig = plt.figure(figsize=CONFIG["Visualization"]["default_figure_size"])
         axes = fig.add_subplot(111)
 
         ##- plotting -##
-        legend_handles = [] # We are going to use this to populate the legend.
-        axes.plot(data.com_y[0] * np.cos(data.y[2]), data.com_y[0] * np.sin(data.y[2]),color="red")
-        axes.plot(data.com_y[1] * np.cos(data.y[2]), data.com_y[1] * np.sin(data.y[2]),color="blue")
-        axes.plot(data.com_y[0][0] * np.cos(data.y[2][0]), data.com_y[0][0] * np.sin(data.y[2][0]),"o",color="red")
-        axes.plot(data.com_y[1][0] * np.cos(data.y[2][0]), data.com_y[1][0] * np.sin(data.y[2][0]),"o",color="blue")
+        legend_handles = []  # We are going to use this to populate the legend.
+        axes.plot(data.com_y[0] * np.cos(data.y[2]), data.com_y[0] * np.sin(data.y[2]), color="red")
+        axes.plot(data.com_y[1] * np.cos(data.y[2]), data.com_y[1] * np.sin(data.y[2]), color="blue")
+        axes.plot(data.com_y[0][0] * np.cos(data.y[2][0]), data.com_y[0][0] * np.sin(data.y[2][0]), "o", color="red")
+        axes.plot(data.com_y[1][0] * np.cos(data.y[2][0]), data.com_y[1][0] * np.sin(data.y[2][0]), "o", color="blue")
 
-        legend_handles += [Line2D([],[],color="red",label=r"$C_1$"),Line2D([],[],color="blue",label=r"$C_2$")]
+        legend_handles += [Line2D([], [], color="red", label=r"$C_1$"), Line2D([], [], color="blue", label=r"$C_2$")]
         ##- adding events -##
-        markers = ["x","o","d",">"]
-        labels = [r"$R_{\mathrm{%s}}\;\mathrm{col.}\;t=%s \mathrm{Gyr}$"%(i,"%s") for i in r_labels]
-        for event,marker,label in zip(r_events,markers,labels):
+        markers = ["x", "o", "d", ">"]
+        labels = [r"$R_{\mathrm{%s}}\;\mathrm{col.}\;t=%s \mathrm{Gyr}$" % (i, "%s") for i in r_labels]
+        for event, marker, label in zip(r_events, markers, labels):
             # Now we need to add the correct positions.
-            event_t,event_y,event_com = event # split the event down to the singular parts.
-            for instance_t,instance_y,instance_com in zip(event_t,event_y,event_com):
-                axes.scatter(instance_com[0] * np.cos(instance_y[2]), instance_com[0] * np.sin(instance_y[2]),marker=marker,label="Cluster 1",color="red")
-                axes.scatter(instance_com[1] * np.cos(instance_y[2]), instance_com[1] * np.sin(instance_y[2]),marker=marker,label="Cluster 1",color="blue")
+            event_t, event_y, event_com = event  # split the event down to the singular parts.
+            for instance_t, instance_y, instance_com in zip(event_t, event_y, event_com):
+                axes.scatter(instance_com[0] * np.cos(instance_y[2]), instance_com[0] * np.sin(instance_y[2]),
+                             marker=marker, label="Cluster 1", color="red")
+                axes.scatter(instance_com[1] * np.cos(instance_y[2]), instance_com[1] * np.sin(instance_y[2]),
+                             marker=marker, label="Cluster 1", color="blue")
 
                 # managing the time labels #
-            time = np.round(event_t[0],decimals=2)
-            legend_handles += [Line2D([],[],color="black",marker=marker,label=label%time)]
+            time = np.round(event_t[0], decimals=2)
+            legend_handles += [Line2D([], [], color="black", marker=marker, label=label % time)]
         ##- asthetics -##
         axes.set_xlabel(r"$x$ [kpc]")
         axes.set_xlabel(r"$y$ [kpc]")
         axes.set_title("Collision-less COM trajectories")
-        axes.set_xlim([-initial_distance.in_units("kpc"),initial_distance.in_units("kpc")])
-        axes.set_ylim([-initial_distance.in_units("kpc"),initial_distance.in_units("kpc")])
+        axes.set_xlim([-initial_distance.in_units("kpc"), initial_distance.in_units("kpc")])
+        axes.set_ylim([-initial_distance.in_units("kpc"), initial_distance.in_units("kpc")])
         plt.grid()
         plt.legend(handles=legend_handles)
         plt.savefig(os.path.join(report_dir, report_name, "Collision_trajectory.png"))
 
-        #- time_distance plot -#
+        # - time_distance plot -#
         fig = plt.figure(figsize=CONFIG["Visualization"]["default_figure_size"])
-        axes = host_subplot(111,axes_class=axisartist.Axes)
+        axes = host_subplot(111, axes_class=axisartist.Axes)
         axes2 = axes.twinx()
 
         ##- plotting -##
-        axes.plot(data.t,data.y[0],label=r"$\mathbf{r}(t)$",color="red")
-        axes.plot(data.t[0],data.y[0][0],"o",color="red", label=r"$\mathrm{C}_{1,\mathrm{init}}$")
-        axes.plot(data.t[-1],data.y[0][-1],"s",color="red", label=r"$\mathrm{C}_{2,\mathrm{final}}$")
-        axes2.plot(data.t,data.y[1],label=r"$\mathbf{v}(t)$",color="blue")
-        axes2.plot(data.t[0],data.y[1][0],"o",color="blue", label=r"$\mathrm{C}_{1,\mathrm{init}}$")
-        axes2.plot(data.t[-1],data.y[1][-1],"s",color="blue", label=r"$\mathrm{C}_{2,\mathrm{final}}$")
+        axes.plot(data.t, data.y[0], label=r"$\mathbf{r}(t)$", color="red")
+        axes.plot(data.t[0], data.y[0][0], "o", color="red", label=r"$\mathrm{C}_{1,\mathrm{init}}$")
+        axes.plot(data.t[-1], data.y[0][-1], "s", color="red", label=r"$\mathrm{C}_{2,\mathrm{final}}$")
+        axes2.plot(data.t, data.y[1], label=r"$\mathbf{v}(t)$", color="blue")
+        axes2.plot(data.t[0], data.y[1][0], "o", color="blue", label=r"$\mathrm{C}_{1,\mathrm{init}}$")
+        axes2.plot(data.t[-1], data.y[1][-1], "s", color="blue", label=r"$\mathrm{C}_{2,\mathrm{final}}$")
 
         ##- adding critical rs -##
-        for r,n,ls in zip(rs,[2500,1000,500,200],["-","-.","--",":"]):
-            axes.hlines(xmin=0,xmax=1.2*np.amax(data.t),y=r.in_units("kpc"),label=r"$\sum r_{%s}$"%n,ls=ls,color="black")
+        for r, n, ls in zip(rs, [2500, 1000, 500, 200], ["-", "-.", "--", ":"]):
+            axes.hlines(xmin=0, xmax=1.2 * np.amax(data.t), y=r.in_units("kpc"), label=r"$\sum r_{%s}$" % n, ls=ls,
+                        color="black")
         ##- asthetics -##
         axes2.axis["right"].toggle(all=True)
         axes.set_xlabel(r"$t$ [Gyr]")
         axes.set_ylabel(r"$y$ [kpc]")
         axes2.set_ylabel(r"$|\mathbf{v}(t)|\;\left[\mathrm{km}\;\mathrm{s}^{-1}\right]$")
         axes.set_title("Relative radial trajectory")
-        axes.set_xlim([0,1.2*np.amax(data.t)])
-        axes.set_ylim([0,initial_distance.in_units("kpc")])
+        axes.set_xlim([0, 1.2 * np.amax(data.t)])
+        axes.set_ylim([0, initial_distance.in_units("kpc")])
         plt.grid()
         axes.legend()
         plt.savefig(os.path.join(report_dir, report_name, "radial_trajectory.png"))
