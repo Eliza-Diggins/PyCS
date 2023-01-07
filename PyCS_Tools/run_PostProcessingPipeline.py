@@ -231,7 +231,7 @@ commands_dict_data = {
             "-cmap": "s",
             "-o": "s",
             "-l": "s",
-            "-np": "s",
+            "-np": "i",
         }
     },
     "Generate Profile Sequence": {
@@ -259,7 +259,7 @@ commands_dict_data = {
             "-c"     :"s",
             "-o"     :"s",
             "-l"     :"s",
-            "-np"    :"s",
+            "-np"    :"i",
         }
     },
     "Generate DM-Baryon Image Sequence": {
@@ -277,7 +277,7 @@ commands_dict_data = {
             "-o": "s",
             "-l": "s",
             "-c": "l",
-            "-np": "s",
+            "-np": "i",
         }
     },
     "Plot Single Snapshot": {

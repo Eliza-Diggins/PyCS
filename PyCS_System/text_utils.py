@@ -600,6 +600,8 @@ def generate_command_sequence(commands_dict, commands_dict_data, **kwargs):
                             pass
                     elif commands_dict_data[command["name"]]["options"][key] == "l":
                         string += "%s %s " % (key, value[0])
+                    elif commands_dict_data[command["name"]]["options"][key] == "i":
+                        string += "%s %s " % (key, value[0])
                     else:
                         string += "%s '%s' " % (key, value[0])
                 else:
