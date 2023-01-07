@@ -1104,7 +1104,6 @@ def option_menu(options, desc=None, title=None):
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename, output_type="FILE")
-    get_options({"option 1":{
-        "setting":("1","1","1")
-    },
-    "options 2":{}},"something")
+    print(file_directory_select({
+        "Figures":CONFIG["system"]["directories"]["figures_directory"]
+    }))
