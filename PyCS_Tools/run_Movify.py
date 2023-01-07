@@ -63,7 +63,7 @@ if __name__ == '__main__':
     # - importing the necessary modules for CHPC -#
     if not args.no_chpc:
         # - We are on chpc and we need to load the correct modules.
-        os.system("ml ffpeg")  # load the ffmpeg module
+        os.system("ml ffmpeg")  # load the ffmpeg module
     else:
         #- There is not issue here -#
         pass
