@@ -171,7 +171,61 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
 
     # Managing CORE settings
     ####################################################################################################################
-    # - managing memory mode -#
+
+        # Manging RAYMOND / RAMSES Settings
+        ################################################################################################################
+    execution_mode = nml_settings["CORE"]["software"] # This is the execution mode we are going to be using for the simulation.
+
+    #- Checking for a valid modality -#
+    if execution_mode not in ["RAMSES","RAYMOND_A","RAYMOND_Q"]:
+        make_error(ValueError,fdbg_string,"%s is not a valid execution mode. Options are RAMSES, RAYMOND_A, and RAYMOND_Q."%execution_mode)
+    #- making necessary changes
+    elif execution_mode == 'RAYMOND_A':
+        #   RAYMOND_A has the following rules:
+        #   MOND_PARAMS must be used, maxstoredcells needed
+        #   DICE_Params off, filetype='gadget', init_file = path.
+        #---------------------------------------------------------#
+        #- Setting the correct items on and off. -#
+        nml_settings["CORE"]["Enabled"]["enable_DICE_PARAMS"] = ("false","false","") # turn off dice
+        nml_settings["CORE"]["Enabled"]["enable_MOND_PARAMS"] = ("true","true","") # turn on mond.
+
+        #- Fixing the correct IC file specifications -#
+        nml_settings["INIT_PARAMS"] = {} # We need to regenerate this param because its not actually in the settings.
+        nml_settings["INIT_PARAMS"]["filetype"] = ("gadget","gadget","")
+        nml_settings["INIT_PARAMS"]["initfile"] = nml_settings["CORE"]["ic_file"]
+    elif execution_mode == "RAYMOND_Q":
+        #   RAYMOND_Q has the following rules:
+        #
+        #
+        #- Setting the correct items on and off. -#
+        nml_settings["CORE"]["Enabled"]["enable_DICE_PARAMS"] = ("false","false","") # turn off dice
+        nml_settings["CORE"]["Enabled"]["enable_MOND_PARAMS"] = ("true","true","") # turn on mond.
+        # Removing the maxstoredcells setting #
+        del nml_settings["MOND_PARAMS"]["maxstoredcells"]
+
+        #- Fixing the correct IC file specifications -#
+        nml_settings["INIT_PARAMS"] = {} # We need to regenerate this param because its not actually in the settings.
+        nml_settings["INIT_PARAMS"]["filetype"] = ("gadget","gadget","")
+        nml_settings["INIT_PARAMS"]["initfile"] = nml_settings["CORE"]["ic_file"]
+
+    else:
+        #   RAMSES has the following rules:
+        #
+        #
+        # - Setting the correct items on and off. -#
+        nml_settings["CORE"]["Enabled"]["enable_DICE_PARAMS"] = ("true", "true", "")  # turn on dice
+        nml_settings["CORE"]["Enabled"]["enable_MOND_PARAMS"] = ("false", "false", "")  # turn off mond.
+
+        #- Fixing the correct IC file specifications -#
+        ##- grabbing necessary information -##
+        ic_path = pt.Path(nml_settings["CORE"]["ic_file"][0])
+        ic_dir, ic_name = str(ic_path.parents[0]),str(ic_path.name)
+        nml_settings["INIT_PARAMS"] = {} # We need to regenerate this param because its not actually in the settings.
+        nml_settings["INIT_PARAMS"]["filetype"] = ("dice","dice","")
+        nml_settings["INIT_PARAMS"]["initfile(1)"] = (ic_dir,ic_dir,"")
+        nml_settings["DICE_PARAMS"]["ic_file"] = (ic_name,ic_name,"")
+    # Managing memory mode settings.
+    ################################################################################################################
     mem_mode = nml_settings["CORE"]["Memory"]["mode"][0]
 
     ##- checking for sensibility -##
