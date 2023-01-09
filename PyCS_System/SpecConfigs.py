@@ -232,7 +232,7 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
     if mem_mode not in ["tot", "max"]:
         make_error(ValueError, fdbg_string, "%s is not a reasonable memory mode. Use 'tot' or 'max'." % mem_mode)
 
-    ##- setting correct settings -##
+    ##- setting correct settings - ##
     if mem_mode == "max":
         # grabbing correct values
         nml_settings["AMR_PARAMS"]["ngridmax"] = nml_settings["AMR_PARAMS"]["ngrid"]
