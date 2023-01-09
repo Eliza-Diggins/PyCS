@@ -88,8 +88,7 @@ def issue_memory_waring(nml_config):
     box_size = box_size.in_units("pc")
 
     # grabbing the ic location and length
-    ic_loc = os.path.join(nml_config["INIT_PARAMS"]["initfile(1)"][0].replace("'", ""),
-                          nml_config["DICE_PARAMS"]["ic_file"][0].replace("'", ""))
+    ic_loc = str(nml_config["CORE"]["ic_file"][0])[1:-1]
 
     snap = pyn.load(ic_loc)
     ic_parts = (len(snap.dm), len(snap.g))
@@ -246,8 +245,8 @@ if __name__ == '__main__':
 
     # changing defaults to reflect choice of IC file.
     default_temp = list(ramses_configuration_data["CORE"]["ic_file"]) # grab the default tuple
-    default_temp[0] = selected_ic_path # setting the IC path
-    ramses_configuration_data["ic_file"] = tuple(default_temp) # adding back to settings.
+    default_temp[0] = "'%s'"%selected_ic_path # setting the IC path
+    ramses_configuration_data["CORE"]["ic_file"] = tuple(default_temp) # adding back to settings.
 
     # grabbing proper settings #
     time.sleep(0.1)  # just waiting for prints to finish.
@@ -268,7 +267,7 @@ if __name__ == '__main__':
 
     # Setting the simulation description
     if sim_data['Description'] == "None":
-        sim_data["Description"] = "RAMSES simulation run at %s." % datetime.now().strftime('%m-%d-%Y_%H-%M-%S')
+        sim_data["Description"] = "%s simulation run at %s." % (ramses_config["CORE"]["software"][0],datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))
 
     if sim_data["NMLFile"] == "None":
         # grab the names of the nml files that already exist
@@ -278,7 +277,7 @@ if __name__ == '__main__':
             name = ramses_config["DICE_PARAMS"]["ic_file"][0].split(".")[0][1:] + ".nml"
 
         except KeyError:
-            name = "RAMSES_nml.nml"
+            name = "%s_nml.nml"%(ramses_config["CORE"]["software"][0])
 
         name_already_exists = name in nml_names
         l = 0
@@ -294,8 +293,14 @@ if __name__ == '__main__':
     ### Providing additional data ###
     sim_data["ICFile"] = selected_ic_file  # grab the IC file path
     sim_data["SLURMDate"] = datetime.now()
-    sim_data["SimulationLocation"] = os.path.join(ramses_output_file, sim_data["SimulationName"])
+    sim_data["Mode"] = ramses_config["CORE"]["software"][0]
     sim_data["NMLFile"] = os.path.join(CONFIG["system"]["directories"]["RAMSES_nml_directory"], name)
+
+    #- setting the output location -#
+    if "RAYMOND" in sim_data["Mode"]:
+        sim_data["SimulationLocation"] = os.path.join(raymond_output_file, sim_data["SimulationName"])
+    else:
+        sim_data["SimulationLocation"] = os.path.join(ramses_output_file, sim_data["SimulationName"])
 
     ### Generating the sim
     add_simulation(**sim_data)
@@ -313,18 +318,27 @@ if __name__ == '__main__':
     ### Creating the batch script ###
     slurm_name = input("%s[Input] Select a name for the .slurm file. [return to auto-generate]:" % _dbg_string)
     if slurm_name == "":
-        slurm_name = "SLURM_RAMSES_%s.slurm" % sim_data["SimulationName"]
+        slurm_name = "SLURM_%s_%s.slurm" %(ramses_config["CORE"]["software"][0], sim_data["SimulationName"])
 
     # generating output file #
     if not os.path.exists(sim_data["SimulationLocation"]):
         pt.Path.mkdir(pt.Path(sim_data["SimulationLocation"]), parents=True)
 
-    command_string = command_string % (sim_data["SimulationLocation"],
-                                       ramses_exec,
-                                       nml_path)
+    if "RAYMOND_Q" == ramses_config["CORE"]["software"][0]:
+        command_string = command_string % (sim_data["SimulationLocation"],
+                                           qumond_exec,
+                                           nml_path)
+    elif "RAYMOND_A" == ramses_config["CORE"]["software"][0]:
+        command_string = command_string % (sim_data["SimulationLocation"],
+                                           aqual_exec,
+                                           nml_path)
+    else:
+        command_string = command_string % (sim_data["SimulationLocation"],
+                                               ramses_exec,
+                                               nml_path)
     time.sleep(0.1)
     os.system('cls' if os.name == 'nt' else 'clear')
     write_slurm_script(command_string,
                        name=slurm_name,
-                       type="RAMSES",
+                       type=ramses_config["CORE"]["software"][0],
                        batch=True)
