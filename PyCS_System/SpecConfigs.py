@@ -174,8 +174,8 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
 
         # Manging RAYMOND / RAMSES Settings
         ################################################################################################################
-    execution_mode = nml_settings["CORE"]["software"] # This is the execution mode we are going to be using for the simulation.
-
+    execution_mode = nml_settings["CORE"]["software"][0] # This is the execution mode we are going to be using for the simulation.
+    print(nml_settings)
     #- Checking for a valid modality -#
     if execution_mode not in ["RAMSES","RAYMOND_A","RAYMOND_Q"]:
         make_error(ValueError,fdbg_string,"%s is not a valid execution mode. Options are RAMSES, RAYMOND_A, and RAYMOND_Q."%execution_mode)
@@ -191,7 +191,7 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
 
         #- Fixing the correct IC file specifications -#
         nml_settings["INIT_PARAMS"] = {} # We need to regenerate this param because its not actually in the settings.
-        nml_settings["INIT_PARAMS"]["filetype"] = ("gadget","gadget","")
+        nml_settings["INIT_PARAMS"]["filetype"] = ("'gadget'","'gadget'","")
         nml_settings["INIT_PARAMS"]["initfile"] = nml_settings["CORE"]["ic_file"]
     elif execution_mode == "RAYMOND_Q":
         #   RAYMOND_Q has the following rules:
@@ -205,7 +205,7 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
 
         #- Fixing the correct IC file specifications -#
         nml_settings["INIT_PARAMS"] = {} # We need to regenerate this param because its not actually in the settings.
-        nml_settings["INIT_PARAMS"]["filetype"] = ("gadget","gadget","")
+        nml_settings["INIT_PARAMS"]["filetype"] = ("'gadget'","'gadget'","")
         nml_settings["INIT_PARAMS"]["initfile"] = nml_settings["CORE"]["ic_file"]
 
     else:
@@ -218,12 +218,12 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
 
         #- Fixing the correct IC file specifications -#
         ##- grabbing necessary information -##
-        ic_path = pt.Path(nml_settings["CORE"]["ic_file"][0])
+        ic_path = pt.Path(str(nml_settings["CORE"]["ic_file"][0])[1:-1])
         ic_dir, ic_name = str(ic_path.parents[0]),str(ic_path.name)
         nml_settings["INIT_PARAMS"] = {} # We need to regenerate this param because its not actually in the settings.
-        nml_settings["INIT_PARAMS"]["filetype"] = ("dice","dice","")
-        nml_settings["INIT_PARAMS"]["initfile(1)"] = (ic_dir,ic_dir,"")
-        nml_settings["DICE_PARAMS"]["ic_file"] = (ic_name,ic_name,"")
+        nml_settings["INIT_PARAMS"]["filetype"] = ("'dice'","'dice'","")
+        nml_settings["INIT_PARAMS"]["initfile(1)"] = ("'%s'"%ic_dir,"'%s'"%ic_dir,"")
+        nml_settings["DICE_PARAMS"]["ic_file"] = ("'%s'"%ic_name,"'%s'"%ic_name,"")
     # Managing memory mode settings.
     ################################################################################################################
     mem_mode = nml_settings["CORE"]["Memory"]["mode"][0]
