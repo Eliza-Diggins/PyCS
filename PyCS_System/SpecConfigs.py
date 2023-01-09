@@ -175,7 +175,6 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
         # Manging RAYMOND / RAMSES Settings
         ################################################################################################################
     execution_mode = nml_settings["CORE"]["software"][0] # This is the execution mode we are going to be using for the simulation.
-    print(nml_settings)
     #- Checking for a valid modality -#
     if execution_mode not in ["RAMSES","RAYMOND_A","RAYMOND_Q"]:
         make_error(ValueError,fdbg_string,"%s is not a valid execution mode. Options are RAMSES, RAYMOND_A, and RAYMOND_Q."%execution_mode)
