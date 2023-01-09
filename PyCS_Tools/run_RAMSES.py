@@ -1,6 +1,6 @@
 """
 
-        RUN RAMSES script
+        RUN RAMSES script, with forward compatibility with RAYMOND
             Written by: Eliza Diggins
 """
 import os
@@ -38,8 +38,16 @@ if not CONFIG["system"]["logging"]["warnings"]:
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --------------------------------------------------- Static Vars -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+#- Grabbing the correct executables -#
 ramses_exec = CONFIG["system"]["executables"]["RAMSES_exec"]
+aqual_exec = CONFIG["system"]["executables"]["AQUAL_exec"]
+qumond_exec = CONFIG["system"]["executables"]["AQUAL_exec"]
+
+#- Grabbing the data storage directories -#
 ramses_output_file = CONFIG["system"]["directories"]["RAMSES_simulations_directory"]
+raymond_output_file = CONFIG["system"]["directories"]["RAYMOND_simulations_directory"]
+
+#- Writing the command string to pass to system for the run -#
 command_string = """
 #- Module Setup -#
 ml purge
@@ -221,7 +229,7 @@ if __name__ == '__main__':
     time.sleep(0.1)
 
     ### Setting up the run ###
-    print_title("run_RAMSES 1.0", "Eliza Diggins")
+    print_title("run_RAMSES %s"%CONFIG["system"]["version"], "Eliza Diggins")
 
     # Grabbing data
     ########################################################################################################################
@@ -237,18 +245,16 @@ if __name__ == '__main__':
     ramses_configuration_data = read_RAMSES_config()  # reading the RAMSES config.
 
     # changing defaults to reflect choice of IC file.
-    init_file, ic_file = list(ramses_configuration_data["INIT_PARAMS"]["initfile(1)"][0]), list(
-        ramses_configuration_data["DICE_PARAMS"]["ic_file"][0])
-    init_file[0], ic_file[0] = "'%s'" % CONFIG["system"]["directories"][
-        "initial_conditions_directory"], "'%s'" % selected_ic_file
-    ramses_configuration_data["INIT_PARAMS"]["initfile(1)"] = tuple(init_file)
-    ramses_configuration_data["DICE_PARAMS"]["ic_file"] = tuple(ic_file)
+    default_temp = list(ramses_configuration_data["CORE"]["ic_file"]) # grab the default tuple
+    default_temp[0] = selected_ic_path # setting the IC path
+    ramses_configuration_data["ic_file"] = tuple(default_temp) # adding back to settings.
 
     # grabbing proper settings #
     time.sleep(0.1)  # just waiting for prints to finish.
     ramses_config = get_options(ramses_configuration_data, "RAMSES Configuration")
     time.sleep(0.1)
     os.system('cls' if os.name == 'nt' else 'clear')
+
     # Generating simulation settings
     ########################################################################################################################
 
