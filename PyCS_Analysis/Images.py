@@ -306,7 +306,7 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
     for family in families:
         ### Cycle through each family and generate the image array.
         #try:
-        print(all(-snapshot.properties["boxsize"]/2<=snapshot["family"]["x"]<=snapshot.properties["boxsize"]/2))
+        print(all(-snapshot.properties["boxsize"]/2<=snapshot[family]["x"]<=snapshot.properties["boxsize"]/2))
         output_array += pyn.plot.sph.image(snapshot[family], qty=qty, noplot=True, **kwargs, threaded=False)
         log_print("Plotted family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
                       fdbg_string, "info")
