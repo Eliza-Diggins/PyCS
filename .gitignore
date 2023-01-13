@@ -130,3 +130,4 @@ dmypy.json
 /out/
 /logs/
 /PyCS_Core/tkt/
+/tests/tests_data/TestSim/
