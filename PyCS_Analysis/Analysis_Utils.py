@@ -107,6 +107,9 @@ def align_snapshot(snapshot) -> None:
 
     snapshot["pos"] -= boxlength
 
+    ##- Filtering -##
+    snapshot = snapshot[pyn.filt.Cuboid(boxlength)]
+
     ##- Managing Units -##
     snapshot.physical_units()  # convert from raw computational units to CSG units.
     log_print("Aligned %s." % snapshot, fdbg_string, "debug")
