@@ -130,7 +130,7 @@ if __name__ == '__main__':
     ########################################################################################################################
     #- load the snapshot -#
     simSnap = pyn.load(os.path.join(simulation_directory, "output_%s" % args.ns))
-    align_snapshot(simSnap)
+    simSnap = align_snapshot(simSnap)
 
     removable_kwargs ={ # Removable kwargs are those kwargs which need to be left out if = None
         "ndim":args.dimensions,

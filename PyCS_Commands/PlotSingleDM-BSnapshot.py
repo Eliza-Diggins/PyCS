@@ -117,7 +117,7 @@ if __name__ == '__main__':
     # Running
     ########################################################################################################################
     simSnap = pyn.load(os.path.join(simulation_directory, "output_%s" % args.ns))
-    align_snapshot(simSnap)
+    simSnap = align_snapshot(simSnap)
 
     kwargs = {
         "vmin": vmin,

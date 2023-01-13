@@ -108,12 +108,18 @@ def align_snapshot(snapshot) -> None:
     snapshot["pos"] -= boxlength
 
     ##- Filtering -##
-    snapshot = snapshot[pyn.filt.Cuboid(boxlength)]
+    snapshot = snapshot[pyn.filt.Cuboid(x1=-boxlength,
+                                        x2=boxlength,
+                                        y1=-boxlength,
+                                        y2=boxlength,
+                                        z1=-boxlength,
+                                        z2=boxlength)]
 
     ##- Managing Units -##
     snapshot.physical_units()  # convert from raw computational units to CSG units.
     log_print("Aligned %s." % snapshot, fdbg_string, "debug")
 
+    return snapshot
 
 def smooth_out(snapshot, family):
     """
@@ -279,7 +285,7 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     data = pyn.load("/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500")
-    align_snapshot(data)
+    data = align_snapshot(data)
 
     make_pseudo_entropy(data)
     print(data.g["entropy"], data.g["entropy"].units)

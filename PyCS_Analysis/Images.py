@@ -189,7 +189,7 @@ def mp_make_plot(arg):
         snap = pyn.load(path)
         # - Aligning the snap -#
         try:
-            align_snapshot(snap)
+            snap = align_snapshot(snap)
         except MemoryError:
             log_print("Ran out of memory", fdbg_string, "critical")
             exit()
@@ -224,7 +224,7 @@ def mp_make_gas_dm_plot(arg):
         snap = pyn.load(path)
         # - Aligning the snap -#
         try:
-            align_snapshot(snap)
+            snap = align_snapshot(snap)
         except MemoryError:
             log_print("Ran out of memory", fdbg_string, "critical")
             exit()
@@ -617,7 +617,7 @@ def generate_image_sequence(simulation_directory, qty, multiprocess=True, nproc=
             # - Cleanup -#
             snapshot = pyn.load(os.path.join(simulation_directory, output_direct))
 
-            align_snapshot(snapshot)
+            snapshot = align_snapshot(snapshot)
 
             # - Plotting -#
             make_plot(snapshot, qty, end_file=os.path.join(output_directory, "Image_%s.png" % snap_number), save=True,
@@ -693,7 +693,7 @@ def generate_dm_baryon_image_sequence(simulation_directory, multiprocess=True, n
             # - Cleanup -#
             snapshot = pyn.load(os.path.join(simulation_directory, output_direct))
 
-            align_snapshot(snapshot)
+            snapshot = align_snapshot(snapshot)
 
             # - Plotting -#
             make_gas_dm_image(snapshot, end_file=os.path.join(output_directory, "Image_%s.png" % snap_number),
