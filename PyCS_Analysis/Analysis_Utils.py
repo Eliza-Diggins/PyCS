@@ -116,8 +116,6 @@ def align_snapshot(snapshot) -> None:
     snapshot.physical_units()  # convert from raw computational units to CSG units.
     log_print("Aligned %s." % snapshot, fdbg_string, "debug")
 
-    return snapshot
-
 def smooth_out(snapshot, family):
     """
     Uses the built in functions pyn.sph.smooth and pyn.sph.rho to compute sph values for non-sph families.
@@ -282,7 +280,7 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     data = pyn.load("/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500")
-    data = align_snapshot(data)
+    align_snapshot(data)
 
     make_pseudo_entropy(data)
     print(data.g["entropy"], data.g["entropy"].units)

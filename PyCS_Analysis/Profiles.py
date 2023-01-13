@@ -233,7 +233,7 @@ def mp_make_profile(arg):
         # Snapshot management
         ################################################################################################################
         try:
-            snap = align_snapshot(snap)
+            align_snapshot(snap)
         except MemoryError:
             log_print("Ran out of memory", fdbg_string, "critical")
             exit()
@@ -695,7 +695,7 @@ def generate_profile_sequence(simulation_directory, qty, multiprocess=True, npro
             # - Cleanup -#
             snapshot = pyn.load(os.path.join(simulation_directory, output_direct))
 
-            snapshot = align_snapshot(snapshot)
+            align_snapshot(snapshot)
 
             # - Plotting -#
             make_profile_plot(snapshot, qty, end_file=os.path.join(output_directory, "Profile_%s.png" % snap_number), save=True,
