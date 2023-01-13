@@ -102,14 +102,8 @@ def align_snapshot(snapshot) -> None:
         raise IsNotRAMSESError("The simulation is not a RAMSES snapshot.")
     except AttributeError:
         raise IsNotRAMSESError("The simulation is not a RAMSES snapshot.")
-    ##- Filtering -##
 
-    snapshot = snapshot[pyn.filt.Cuboid(x1=0,
-                                        x2=2*boxlength,
-                                        y1=0,
-                                        y2=2*boxlength,
-                                        z1=0,
-                                        z2=2*boxlength)]
+    ##- Increasing the boxsize -##
     snapshot.properties["boxsize"] = 2*snapshot.properties["boxsize"]
 
     ##- Aligning -##
