@@ -102,18 +102,20 @@ def align_snapshot(snapshot) -> None:
         raise IsNotRAMSESError("The simulation is not a RAMSES snapshot.")
     except AttributeError:
         raise IsNotRAMSESError("The simulation is not a RAMSES snapshot.")
+    ##- Filtering -##
+
+    snapshot = snapshot[pyn.filt.Cuboid(x1=0,
+                                        x2=2*boxlength,
+                                        y1=0,
+                                        y2=2*boxlength,
+                                        z1=0,
+                                        z2=2*boxlength)]
 
     ##- Aligning -##
 
     snapshot["pos"] -= boxlength
 
     ##- Filtering -##
-    snapshot = snapshot[pyn.filt.Cuboid(x1=-boxlength,
-                                        x2=boxlength,
-                                        y1=-boxlength,
-                                        y2=boxlength,
-                                        z1=-boxlength,
-                                        z2=boxlength)]
 
     ##- Managing Units -##
     snapshot.physical_units()  # convert from raw computational units to CSG units.
