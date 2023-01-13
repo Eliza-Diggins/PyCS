@@ -110,7 +110,7 @@ def align_snapshot(snapshot) -> None:
                                         y2=2*boxlength,
                                         z1=0,
                                         z2=2*boxlength)]
-    snapshot.properties["boxsize"] = 1.1*snapshot.properties["boxsize"]
+    snapshot.properties["boxsize"] = 2*snapshot.properties["boxsize"]
 
     ##- Aligning -##
 
