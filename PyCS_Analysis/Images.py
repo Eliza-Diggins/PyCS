@@ -158,6 +158,49 @@ def fix_array(array, qty, units):
     else:
         return array
 
+# Image Manipulation Functions
+#----------------------------------------------------------------------------------------------------------------------#
+def merge_alpha_images(alpha_arrays:list,colors:list):
+    # Intro Debugging
+    ####################################################################################################################
+    fdbg_string = "%smerge_alpha_images: "%_dbg_string
+    log_print("Merging a set of %s images."%(len(alpha_arrays)),fdbg_string,"debug")
+
+    # SETUP
+    ####################################################################################################################
+    #- Are there actually arrays? -#
+    if not len(alpha_arrays):
+        make_error(ValueError,fdbg_string,"The set of arrays cannot be empty.")
+    elif len(alpha_arrays) != len(colors):
+        make_error(ValueError,fdbg_string,"The color list %s is not the same length as the arrays. (%s,%s)"%(colors,len(colors),len(alpha_arrays)))
+    else:
+        pass # Nothing wrong
+
+    # Generating the colormaps and normalizing the arrays
+    ####################################################################################################################
+    #- Make Cmaps -#
+    cmaps = [mpl.colors.ListedColormap([i]) for i in colors] # generates the correct colormaps
+
+
+    #- Making the base arrays -#
+    base_arrays = [cmap(array)[:,:,:-1] for cmap,array in zip(cmaps,alpha_arrays)] # grab the RBG values.
+
+    # Combining images
+    ####################################################################################################################
+    #- multiplying by alphas -#
+    # These are now the individual images correctly normalized.
+    base_arrays = np.array([base_array*np.stack([alpha_array,alpha_array,alpha_array],axis=-1) for base_array,alpha_array in zip(base_arrays,alpha_arrays)])
+
+    #- Making the image -#
+    image = np.sum(base_arrays,axis=0)
+
+    #- renormalizing -#
+    for i in range(3):
+        image[:,:,i] = (image[:,:,i]/np.amax(image[:,:,i]))*255
+
+    return image.astype("uint8")
+
+
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --------------------------------------------- Multi-Processing Functions ----------------------------------------------#
@@ -305,13 +348,13 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
 
     for family in families:
         ### Cycle through each family and generate the image array.
-        #try:
-        output_array += pyn.plot.sph.image(snapshot[family], qty=qty, noplot=True, **kwargs, threaded=False)
-        log_print("Plotted family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
+        try:
+            output_array += pyn.plot.sph.image(snapshot[family], qty=qty, noplot=True, **kwargs, threaded=False)
+            log_print("Plotted family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
                       fdbg_string, "info")
-        #except Exception:
-        #    log_print("Failed to plot family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
-        #              fdbg_string, "error")
+        except Exception:
+            log_print("Failed to plot family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
+                      fdbg_string, "error")
 
     # RETURNING
     ########################################################################################################################
@@ -486,7 +529,6 @@ def make_gas_dm_image(snapshot,
         vmin = vmin.in_units(kwargs["units"])
     except Exception:
         vmin = vmin  # we just set trivially.
-    print(vmin, vmax_dm, vmax_gas)
     ##- Generating the norms -##
     norm_dm, norm_gas = mpl.colors.LogNorm(vmin=vmin, vmax=vmax_dm, clip=True), mpl.colors.LogNorm(vmin=vmin,
                                                                                                    vmax=vmax_gas,
@@ -498,21 +540,9 @@ def make_gas_dm_image(snapshot,
     # Generating the images
     ####################################################################################################################
 
-    # - Creating the empty image arrays (RGBA) -#
-    dm_im, gas_im = np.zeros((kwargs["resolution"], kwargs["resolution"], 4)), np.zeros(
-        (kwargs["resolution"], kwargs["resolution"], 4))
-
-    # - Setting colors -#
-    dm_im[:, :, :-1], gas_im[:, :, :-1] = tuple(colors)  # assign the RGB segments of the arrays to the colors.
-    # - Setting alpha -#
-    dm_im[:, :, 3], gas_im[:, :, 3] = norm_dm(dark_matter_array), norm_gas(
-        baryonic_array)  # generating the image arrays.
-
-    dm_image, gas_image = Image.fromarray(np.uint8(dm_im * 255)), Image.fromarray(np.uint8(gas_im * 255))
-    final_image = Image.alpha_composite(dm_image, gas_image)
-
+    final_image = merge_alpha_images([norm_gas(baryonic_array),norm_dm(dark_matter_array)],colors)
     # - cleaning up -#
-    del baryonic_array, dark_matter_array, dm_image, gas_image, dm_im, gas_im
+    del baryonic_array, dark_matter_array
     gc.collect()
     # Plotting
     ####################################################################################################################
@@ -709,6 +739,11 @@ def generate_dm_baryon_image_sequence(simulation_directory, multiprocess=True, n
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
 
-    set_log(_filename, output_type="FILE", level=10)
-    generate_dm_baryon_image_sequence("/home/ediggins/PyCS/RAMSES_simulations/TestSim", multiprocess=False,
-                                      width="5000 kpc")
+    set_log(_filename, output_type="STDOUT", level=10)
+    data = pyn.load("/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500")
+
+    align_snapshot(data)
+
+
+    make_gas_dm_image(data,save=False,colors=["purple","yellow"])
+    plt.show()

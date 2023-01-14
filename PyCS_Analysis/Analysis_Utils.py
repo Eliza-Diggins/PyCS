@@ -39,6 +39,18 @@ boltzmann = 1.380649e-23 * pyn.units.Unit("J K^-1")  # Defining the Boltzmann co
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --------------------------------------------------- Sub-Functions -----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+# Simple sub-functions
+#----------------------------------------------------------------------------------------------------------------------#
+def get_random_colors(n: int, name: str = "viridis") -> np.array:
+    """
+    Returns an array of HSV colors evenly distributed over n values.
+    :param n: The number of values to use in the array
+    :param name: The name of the colormap to use
+    :return: Array containing colors.
+    """
+    return [plt.cm.get_cmap(name, n + 1)(i) for i in range(n)]
+
+
 # SETUP Functions
 # ----------------------------------------------------------------------------------------------------------------------#
 def find_gas_COM(snapshot, cutoff_parameter=0.5):
