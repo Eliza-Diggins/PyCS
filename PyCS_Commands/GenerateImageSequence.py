@@ -17,7 +17,7 @@ import pathlib as pt
 from colorama import Fore, Style
 from matplotlib.pyplot import cm
 from PyCS_Core.PyCS_Errors import *
-from PyCS_System.SimulationMangement import get_simulation_qty
+from PyCS_System.SimulationMangement import SimulationLog
 from PyCS_Analysis.Images import generate_image_sequence
 import warnings
 
@@ -28,7 +28,7 @@ _location = "PyCS_Commands"
 _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
-
+simlog = SimulationLog.load_default()
 # - managing warnings -#
 if not CONFIG["system"]["logging"]["warnings"]:
     warnings.filterwarnings('ignore')
@@ -84,7 +84,7 @@ if __name__ == '__main__':
         raise OSError("%s: Failed to find either -sim or -simdir. At least one is necessary..." % cdbg_string)
 
     if args.simulation_name:  # we were given a simulation name
-        matches = get_simulation_qty("SimulationLocation", {"SimulationName": args.simulation_name})
+        matches = simlog.match("SimulationName", "SimulationLocation", args.simulation_name)
         simulation_name = args.simulation_name
         if len(matches) == 1:
             simulation_directory = matches[0]
@@ -99,7 +99,7 @@ if __name__ == '__main__':
         simulation_directory = args.simulation_directory
 
         try:
-            simulation_name = get_simulation_qty("SimulationName", {"SimulationLocation": args.simulation_directory})[0]
+            simulation_name = simlog.match("SimulationLocation", "SimulationName", args.simulation_directory)[0]
         except KeyError:
             simulation_name = pt.Path(simulation_directory).name
 

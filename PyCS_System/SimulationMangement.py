@@ -17,6 +17,7 @@ description=
 output_location=
 ...
 """
+from datetime import datetime
 import os
 import pathlib as pt
 import sys
@@ -24,11 +25,9 @@ import sys
 # adding the system path to allow us to import the important modules
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
-from PyCS_Core.Logging import set_log, log_print, make_error
 import toml
-from datetime import datetime
-from colorama import Fore, Back, Style
 import warnings
+from tqdm import tqdm
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
@@ -44,407 +43,391 @@ if not CONFIG["system"]["logging"]["warnings"]:
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Fixed Variables ----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-_simulation_logs_directory = os.path.join(CONFIG["system"]["directories"]["bin_directory"], "Simulation_Logs",
-                                          "simlog.log")
-
-_valid_simulation_kwargs = [
-    "SimulationName",  # This is the name of the simulation. Created by run_RAMSES and run_POR
-    "SimulationType",  # This is the type of the simulation. run_RAMSES and run_POR
-    "ICFile",  # The initial condition file location run_RAMSES
-    "Description",  # The description of the simulation. run_RAMSES
-    "SLURMFile",  # The associated slurm file
-    "NMLFile",
-    "SimulationLocation",  # The associated location of the simulation
-    "SLURMDate",  # Date submitted to SLURM
-    "NSnapshots",  # number of snapshots
-    "FiguresLocation",
-    "DateCreated",
-    "MoviesLocation"
-]
-
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-# -------------------------------------------------- Sub-Functions ------------------------------------------------------#
+# --------------------------------------------------- Functions ---------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-# SIMULATION MANAGEMENT FUNCTIONS
-# ----------------------------------------------------------------------------------------------------------------------#
-def get_simulation_qty(output_qty, known_kwargs):
-    """
-    Returns the desired output qty of all simulations matching the known kwargs.
-    Parameters
-    ----------
-    output_qty
-    known_kwargs
 
-    Returns
-    -------
+# --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+# ----------------------------------------------------- Classes ---------------------------------------------------------#
+# --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+class ItemLog:
+    """
+    This is the core logging item which is inherited by both the IC logger and the Simulation Logger.
+
 
     """
-    simlog = read_simulation_log()
+    # - debugging variables -#
+    cdbg_string = "%sItemLog:" % _dbg_string
 
-    matches = []
+    def __init__(self, path=None):
+        """
+        Initializes the ItemLog object.
 
-    for key, value in simlog.items():
-        check_match = True
-        if isinstance(value, dict) and key != "Global":
-            shared_keys = [key for key in known_kwargs if key in value]
-            for known_key in shared_keys:
-                if value[known_key] == known_kwargs[known_key]:  # This is a match
-                    pass
-                else:
-                    check_match = False
-            if check_match and len(shared_keys):
-                matches.append(key)
+        Parameters
+        ----------
+        path: The path to the log.
+        """
+        # Path Management
+        ################################################################################################################
+        self.path = path
+        if path and os.path.isfile(path):
+            # This path exists and it was specified; this should be usable
+            self.log = toml.load(path)
+        elif path:
+            raise OSError("The path %s doesn't exist." % path)
+        else:
+            self.log = {}
+
+    def __repr__(self):
+        return "<ItemLog item @ %s>" % self.path
+
+    def __str__(self):
+        return str(self.log)
+
+    def __len__(self):
+        return len(self.log)
+
+    def _write(self):
+        if self.path:
+            with open(self.path, "w") as file:
+                toml.dump(self.log, file)
         else:
             pass
 
-    return [simlog[match][output_qty] for match in matches]
+    def __getitem__(self, item):
+        return self.log[item]
 
+    def __setitem__(self, key, value):
 
-def read_simulation_log(file: str = _simulation_logs_directory) -> dict:
-    """
-    Reads in the TOML file containing the simulation data.
+        # adding
+        self.log[key] = value
 
-    Parameters
-    ----------
-    file: The file to open with the simulation log. This only needs to be set if there is an issue.
-
-    Returns: Dictionary with all of the simulation data.
-    -------
-
-    """
-    # Start debug #
-    fdbg_string = _dbg_string + "read_simulation_log: "
-    log_print("Reading simulation log from %s." % file, fdbg_string, "debug")
-
-    # attempting to read the file #
-    if not os.path.exists(file):  # The file doesn't exist.
-        make_error(FileExistsError, fdbg_string,
-                   "The file %s doesn't exist. If no prior simulations exist, the simlog file might not yet exist.")
-        return {}  # these just keep the IDE from yelling at me.
-    ### We have the file, we now try to open it ###
-    try:
-        sim_log = toml.load(file)
-    except Exception:
-        make_error(SyntaxError, fdbg_string, "TOML failed to load %s. Please check formatting and corruption." % file)
-        return {}
-
-    return sim_log
-
-
-def add_simulation(file: str = _simulation_logs_directory, **kwargs) -> None:
-    """
-    Adds a simulation to the specified file with the kwargs specified. Kwargs must be among the valid kwargs.
-    Parameters
-    ----------
-    file: The file to add to.
-    kwargs: The kwargs to use for the entry.
-
-    Returns: None
-    -------
-
-    """
-    fdbg_string = _dbg_string + "add_simulation: "
-    log_print("Adding new entry to file %s. Data: %s." % (file, kwargs), fdbg_string, "debug")
-
-    ### reading the simulation log ###
-    try:
-        simlog = read_simulation_log(file)
-    except Exception:  # We don't actually have a log file yet.
-        if not os.path.exists(pt.Path(file).parents[0]):
-            pt.Path.mkdir(pt.Path(file).parents[0], parents=True)
-        with open(file, "w+") as f:
-            f.write("[Global]")  # We make the header to make it TOML readable.
-
-        simlog = read_simulation_log(file)  # if this fails we deserve the error.
-
-    ## Grabbing all simulation names ##
-    simulation_names = [simlog[simulation]["SimulationName"] for simulation in simlog.keys() if simulation != "Global"]
-
-    # is this simulation named ?
-    sim_name = (
-        kwargs["SimulationName"] if "SimulationName" in kwargs else "No Name")  # give it a name if it doesn't have one.
-
-    if sim_name in simulation_names and sim_name != "No Name":
-        ### We have a named sim and it is named. We update it instead.
-        update_simulation(sim_name, file=file, **kwargs)
-    else:
-        ### This is a novel simulation and we need to add it.
-        if len(simulation_names):
-            numb = len(simulation_names) + 1
-            simlog["Simulation_%s" % (str(numb))] = {"SimulationName": sim_name}
+        # saving changes #
+        if self.path:
+            with open(self.path, "w") as file:
+                toml.dump(self.log, file)
         else:
-            numb = 1
-            simlog["Simulation_1"] = {"SimulationName": sim_name}
+            pass
 
-        sim_number = "Simulation_%s" % numb  # so we can locate it again.
-        ### Adding other necessary data ###
-        simlog[sim_number]["DateCreated"] = datetime.now()
+    def __delitem__(self, key):
 
-        for kwarg in kwargs:
-            if kwarg not in ["DateCreated",
-                             "SimulationName"] and kwarg in _valid_simulation_kwargs:  # we want to add it
-                simlog[sim_number][kwarg] = kwargs[kwarg]
-            else:
-                pass
+        del self.log[key]
+        # saving changes #
+        if self.path:
+            with open(self.path, "w") as file:
+                toml.dump(self.log, file)
+        else:
+            pass
 
-    ### Saving back to disk ###
-    os.remove(file)
-    with open(file, "w+") as f:
-        toml.dump(simlog, f)
+    def __contains__(self, item):
+        if item in self.log:
+            return True
+        else:
+            return False
 
+    def match(self, inkey, outkey, value):
+        """
+        Finds the value of the matching ``inkey`` in the ``outkey``
 
-def update_simulation(simulation_name, file: str = _simulation_logs_directory, **kwargs):
-    """
-    Updates the simulation log for the given simulation_name.
-    Parameters
-    ----------
-    file: The simulation log to update.
-    simulation_name: The simulation name to update.
-    kwargs: The kwargs to change.
-
-    Returns
-    -------
-
-    """
-    fdbg_string = _dbg_string + "update_simulation: "
-    log_print("Updating %s entry in file %s. Data: %s." % (simulation_name, file, kwargs), fdbg_string, "debug")
-
-    ### reading the simulation log ###
-    try:
-        simlog = read_simulation_log(file)
-    except Exception:  # We don't actually have a log file yet.
-        pt.Path.mkdir(pt.Path(file).parents[0], parents=True)
-        with open(file, "w+") as f:
-            f.write("[Global]")  # We make the header to make it TOML readable.
-
-        simlog = read_simulation_log(file)  # if this fails we deserve the error.
-
-    ## Grabbing all simulation names ##
-    simulation_names = [simlog[simulation]["SimulationName"] for simulation in simlog.keys() if simulation != "Global"]
-    # Does the simulation exist?
-    if not simulation_name in simulation_names:
-        add_simulation(file=file, Name=simulation_name, **kwargs)
-        return None
-    else:
-        sim_number = "Simulation_%s" % (simulation_names.index(simulation_name) + 1)  # grab the sim number
-
-    for key, value in kwargs.items():
-        simlog[sim_number][key] = value
-
-    ### Saving back to disk ###
-    os.remove(file)
-    with open(file, "w+") as f:
-        toml.dump(simlog, f)
-
-
-def delete_simulation(simulation_name, file: str = _simulation_logs_directory):
-    """
-        removes the simulation log for the given simulation_name.
         Parameters
         ----------
-        file: The simulation log to update.
-        simulation_name: The simulation name to update.
+        inkey: The key of the value we are going to give
+        outkey: The outkey we want data from.
+        value: The value we are trying to look up.
 
-        Returns
+        Returns: list of matched values
         -------
 
         """
-    fdbg_string = _dbg_string + "remove_simulation: "
-    log_print("Removing %s entry in file %s." % (simulation_name, file), fdbg_string, "debug")
+        matches = []  # This is where we will store the matches
 
-    ### reading the simulation log ###
-    try:
-        simlog = read_simulation_log(file)
-    except Exception:  # We don't actually have a log file yet.
-        pt.Path.mkdir(pt.Path(file).parents[0], parents=True)
-        with open(file, "w+") as f:
-            f.write("[Global]")  # We make the header to make it TOML readable.
-
-        simlog = read_simulation_log(file)  # if this fails we deserve the error.
-
-    ## Grabbing all simulation names ##
-    simulation_names = [simlog[simulation]["SimulationName"] for simulation in simlog.keys() if simulation != "Global"]
-    # Does the simulation exist?
-    if not simulation_name in simulation_names:
-        return None
-    else:
-        sim_number = "Simulation_%s" % (simulation_names.index(simulation_name) + 1)  # grab the sim number
-
-    del simlog[sim_number]
-
-    for i in range(simulation_names.index(simulation_name) + 1, len(simulation_names) - 1):
-        simlog["Simulation_%s" % (i)] = simlog["Simulation_%s" % (i + 1)]
-
-    del simlog["Simulation_%s" % (len(simulation_names))]
-    ### Saving back to disk ###
-    os.remove(file)
-    with open(file, "w+") as f:
-        toml.dump(simlog, f)
-
-
-def print_calcs(sim_log, pad=2, headers=None):
-    if not headers:
-        headers = ["SimulationName", "SimulationType", "Description", "NSnapshots"]
-    # these are the headers we print
-    header_length = []
-    for header in headers:
-        temp = len(header) + pad
-        for key, value in sim_log.items():  # cycle through all of the items in the log
-            if isinstance(value, dict):  # This is a dictionary we care about.
-                if header in value and len(value[header]) + pad > temp:
-                    temp = len(value[header]) + pad
-            else:  # This is a formatting error
-                pass
-        header_length.append(temp)
-
-    left_overs_dict = {key: {} for key in sim_log}
-    for key in sim_log:
-        for val in sim_log[key]:
-            if val in headers:
-                left_overs_dict[key][val] = header_length[headers.index(val)] - (len(sim_log[key][val]))
-    return (header_length, left_overs_dict)
-
-
-# IC MANAGEMENT TOOLS
-# ----------------------------------------------------------------------------------------------------------------------#
-def add_ic_file(file, **kwargs):
-    # Intro debugging
-    ####################################################################################################################
-    fdbg_string = "%sadd_ic_file: " % _dbg_string
-    log_print("Adding %s to the IC log with kwargs:%s." % (file, kwargs), fdbg_string, "debug")
-
-    # Checking for / creating the IC log
-    ####################################################################################################################
-    # - Checking that the correct directory exists first and creating it if not -#
-    if not os.path.isdir(os.path.join(CONFIG["system"]["directories"]["bin_directory"], "IC_Logs")):
-        pt.Path.mkdir(pt.Path(os.path.join(CONFIG["system"]["directories"]["bin_directory"], "IC_Logs")), parents=True)
-
-    # - Checking if there is already a file -#
-    log_path = os.path.join(CONFIG["system"]["directories"]["bin_directory"], "IC_Logs",
-                            "IC_log.log")  # generating the log path.
-    if not os.path.exists(log_path):
-        # The file doesn't exist, so we make it #
-        with open(log_path, "w+") as f:
-            pass  # Creates the file and then closes.
-
-        # return an empty iclog item #
-        iclog = {}
-    else:
-        # The path does exist, we load it.
-        iclog = toml.load(log_path)
-
-    # Adding the file to the IC log
-    ####################################################################################################################
-    file_name = pt.Path(file).name  # grab just the name and remove parents.
-
-    ##- is there already an entry? -##
-    if file_name in iclog:  # there is a matching key.
-        log_print("%s already exists in the IC log. Replacing it." % file_name, fdbg_string, "warning")
-
-        for key, value in kwargs.items():  # cycle through all of the kwargs.
-            iclog[file_name][key] = value
-
-    else:  # that key doesn't exist yet.
-        iclog[file_name] = {}
-
-        for key, value in kwargs.items():  # cycle through all of the kwargs.
-            iclog[file_name][key] = value
-
-    # Adding basic info
-    ####################################################################################################################
-    iclog[file_name]["CreatedDate"] = datetime.now()
-    iclog[file_name]["location"] = str(file)
-
-    # Deleting and replacing
-    ####################################################################################################################
-    os.remove(log_path)
-
-    with open(log_path, "w+") as f:
-        toml.dump(iclog, f)
-
-
-def read_ic_log():
-    log_path = os.path.join(CONFIG["system"]["directories"]["bin_directory"], "IC_Logs", "IC_log.log")
-    return toml.load(log_path)
-
-
-# --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-# ----------------------------------------------------- Functions -------------------------------------------------------#
-# --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-def print_simulation_log(file: str = _simulation_logs_directory, location=None, calcs=None, simlog=None):
-    """
-    Prints the current simulation log.
-    Parameters
-    ----------
-    file: The directory holding the simulation log.
-
-    Returns
-    -------
-
-    """
-    ### Setting up ###
-    headers = ["SimulationName", "SimulationType", "Description", "NSnapshots"]  # grabbing headers
-
-    if not simlog:
-        simlog = read_simulation_log(file=file)
-    if not location:
-        location = list(simlog.keys())[1]
-
-    if not calcs:
-        calcs = print_calcs(simlog, headers=headers)
-
-    # Boundaries
-    ########################################################################################################################
-    print("+", end="")
-    for id, header in enumerate(headers): print(("-" * calcs[0][id]) + "+", end="")
-    print("")
-    # second line
-    print("|", end="")
-    for id, header in enumerate(headers): print(
-        Fore.BLUE + Style.BRIGHT + " %s" % header + Style.RESET_ALL + (" " * (calcs[0][id] - 1 - len(header))) + "|",
-        end="")
-    # third line
-    print("")
-    print("+", end="")
-    for id, header in enumerate(headers): print(("-" * calcs[0][id]) + "+", end="")
-    print("")
-
-    # Main
-    ########################################################################################################################
-    for simulation, sim_values in simlog.items():
-        if simulation != "Global":
-            print("|", end="")
-            if not simulation == location:
-                for id, header in enumerate(headers):
-                    if isinstance(sim_values, dict) and header in sim_values:  # Is the header in sim_values?
-                        color = (Fore.GREEN + Style.BRIGHT if header == "SimulationName" else "")
-                        print(" %s%s%s%s|" % (
-                        color, sim_values[header], Style.RESET_ALL, " " * (calcs[1][simulation][header] - 1)), end="")
-                    else:
-                        print("%s|" % ((calcs[0][id] * " ")), end="")
-                print('')
-            else:
-                for id, header in enumerate(headers[:-1]):
-                    if isinstance(sim_values, dict) and header in sim_values:  # Is the header in sim_values?
-                        print("%s %s%s|" % (
-                        Fore.BLACK + Back.WHITE, sim_values[header], " " * (calcs[1][simulation][header] - 1)), end="")
-                    else:
-                        print("%s%s|" % (Fore.BLACK + Back.WHITE, (calcs[0][id] * " ")), end="")
-                if isinstance(sim_values, dict) and headers[-1] in sim_values:  # Is the header in sim_values?
-                    print("%s %s%s%s|" % (
-                        Fore.BLACK + Back.WHITE, sim_values[header], " " * (calcs[1][simulation][header] - 1),
-                        Style.RESET_ALL), end="")
+        for key, item in self.log.items():
+            if inkey in item and outkey in item:  # Does this entry actually have the key in question?
+                if item[inkey] == value:
+                    matches.append(item[outkey])
                 else:
-                    print("%s%s%s|" % (Fore.BLACK + Back.WHITE, (calcs[0][-1] * " "), Style.RESET_ALL), end="")
-                print("")
-    print("+", end="")
-    for id, header in enumerate(headers): print(("-" * calcs[0][id]) + "+", end="")
-    print("")
+                    pass
+            else:
+                pass
+        return matches
+
+    def items(self):
+        return self.log.items()
+    def values(self):
+        return self.log.values()
+    def keys(self):
+        return self.log.keys()
+
+    def columns(self,type="all"):
+        if type not in ["all","any"]:
+            raise ValueError("type must be all or any.")
+
+        any_col = [] # here we store all columns no matter what
+        all_cols = [] # the ones we eventually return
+
+        for id,value in enumerate(self.values()):
+            val_cols = list(value.keys()) # these are the new keys here.
+
+            any_col = list(set(any_col+val_cols)) # these are the any columns
+
+            if id == 0:
+                all_cols = val_cols
+            else:
+                all_cols = [item for item in val_cols if item in all_cols]
+
+        if type == "all":
+            return all_cols
+        else:
+            return  any_col
 
 
+
+
+class SimulationLog(ItemLog):
+    """
+    This is a fully functioning Simulation log
+    """
+    cdbg_string = "%sSimulationLog:" % _dbg_string
+
+    def __init__(self, path=None):
+
+        # Initializing the log
+        ################################################################################################################
+        ItemLog.__init__(self, path=path)
+
+        # Checking for core updates
+        ################################################################################################################
+        if path:
+            # We only do this if a path is given because it would otherwise be empty.
+            for entry,data in self.items():
+                # cycle through all of the data and pull things in #
+                if "SimulationLocation" in data:
+                    # let's check for outputs #
+                    try:
+                        n_outputs = len([dir for dir in os.listdir(data["SimulationLocation"]) if "output" in dir])
+                    except FileNotFoundError:
+                        n_outputs = "N.A."
+
+                    self.log[entry]["n_ouputs"] = n_outputs
+
+            self._write()
+
+    @staticmethod
+    def load_default():
+        """
+        Loads the default log location.
+        Returns: The log object.
+        -------
+
+        """
+        # Loading the log from CONFIG location
+        ################################################################################################################
+        log = SimulationLog(path=os.path.join(CONFIG["system"]["directories"]["bin_directory"],
+                                               "Simulation_Logs",
+                                               "simlog.log"))
+
+        # UPDATE CHECK
+        ################################################################################################################
+        #- Checking for missing locations -#
+        simlocations = [value["SimulationLocation"] for value in log.values() if "SimulationLocation" in value]
+
+        # look for RAMSES
+        try:
+            locatable_sims = [os.path.join(CONFIG["system"]["directories"]["RAMSES_simulations_directory"],directory) for directory in os.listdir(CONFIG["system"]["directories"]["RAMSES_simulations_directory"])]
+        except FileNotFoundError:
+            locatable_sims = []
+
+        # Look for RaYMOND
+        try:
+            locatable_sims += [os.path.join(CONFIG["system"]["directories"]["RAYMOND_simulations_directory"], directory)
+                              for directory in
+                              os.listdir(CONFIG["system"]["directories"]["RAYMOND_simulations_directory"])]
+        except FileNotFoundError:
+            pass
+
+        for id,sim_dir in enumerate(locatable_sims):
+            if sim_dir not in simlocations:
+                # This is a novel simulation that we want to add #
+                log.append({"SimulationLocation":sim_dir,
+                            "Software":(
+                                "RAMSES" if CONFIG["system"]["directories"]["RAMSES_simulations_directory"] in sim_dir else
+                                "RAYMOND_NeS"
+                            ),
+                            "SimulationName":"UNK-%s-%s"%(datetime.now().strftime('%m-%d-%Y'),id)})
+
+        #- Checking for figure sets -#
+        for simulation,data in log.items():
+            if data["SimulationName"] in os.listdir(CONFIG["system"]["directories"]["figures_directory"]):
+                # There is data in the figures directory.
+                log[simulation]["has_figures"] = True
+                log[simulation]["GeneratedImages"] = [dir for dir in os.listdir(os.path.join(CONFIG["system"]["directories"]["figures_directory"],data["SimulationName"])) if "Profile" not in dir]
+                log[simulation]["GeneratedProfiles"] = [dir for dir in os.listdir(os.path.join(CONFIG["system"]["directories"]["figures_directory"],data["SimulationName"])) if "Profile" in dir]
+
+                log[simulation]["NProfiles"],log[simulation]["NImages"] = len(log[simulation]["GeneratedImages"]),len(log[simulation]["GeneratedProfiles"])
+            else:
+                log[simulation]["has_figures"] = False
+
+        # Returning
+        ################################################################################################################
+        return log
+
+    def named_log(self):
+        """
+        Pulls the names out of the simulations and expresses the log in terms of the names.
+
+        Returns: The log containing the named log data.
+        -------
+        """
+        out_dict = {}
+
+        for item, value in self.log.items():
+            if "SimulationName" in value:
+                out_dict[value["SimulationName"]] = {key: value for key, value in value.items() if
+                                                     key != "SimulationName"}
+
+        return out_dict
+
+    def _keys_from_name(self, name):
+        """
+        Returns the key with the given Simulation name.
+        Parameters
+        ----------
+        name: The name to look for.
+
+        Returns: The corresponding key.
+        -------
+
+        """
+        names = {key: (value["SimulationName"] if "SimulationName" in value else None) for key, value in
+                 self.log.items()}
+
+        return [key for key, item in names.items() if item == name]
+
+    def append(self, entry):
+        """
+        Appends the new entry to the simulation log.
+
+        Parameters
+        ----------
+        entry: dict, the entry to add
+
+        Returns: None
+        -------
+
+        """
+
+        # Checking validity
+        ################################################################################################################
+        if "SimulationName" not in entry:
+            raise KeyError("New entries to a SimulationLog object must have a SimulationName.")
+        elif len(self._keys_from_name(entry["SimulationName"])) != 0:
+            # There is already a simulation with this name in the simulationlog.
+            raise KeyError(
+                "There is already a simulation with this name (%s) in the simulation log." % entry["SimulationName"])
+        else:
+            pass  # There is nothing wrong.
+
+        # Forcing some elements
+        ################################################################################################################
+        for key, fill in zip(["DateCreated", "Software", "ICFile", "NMLFile", "Description", "SimulationLocation"],
+                             [datetime.now(), "N.E.S", "None", "None", "None Given", "None"]):
+            if key not in entry:
+                entry[key] = fill
+            else:
+                pass
+
+        # Finding the key
+        ################################################################################################################
+        key_string = "Simulation_%s"
+        n = 0
+
+        while True:
+            if key_string % n in self.log:
+                n += 1
+            else:
+                simulation_key = key_string % n
+                break
+
+        # Adding the simulation
+        ################################################################################################################
+        self.log[simulation_key] = entry
+
+        # Writing #
+        self._write()
+
+    def __delitem__(self, key):
+        """
+        This is meant to delete the entire simulation from our database.
+
+        Parameters
+        ----------
+        key: The simulation to delete.
+
+        Returns: None
+        -------
+
+        """
+        # Collecting deletables
+        ################################################################################################################
+        deletable_directories = []
+
+        if "NMLFile" in self.log[key]:
+            # There is an NML file to delete.
+            deletable_directories.append(self.log[key]["NMLFile"])
+
+        if "SimulationLocation" in self.log[key]:
+            deletable_directories += [dir for dir in os.listdir(self.log[key]["SimulationLocation"])]
+            deletable_directories += [self.log[key]["SimulationLocation"]]
+
+        print(deletable_directories)
+        # Deleting
+        ################################################################################################################
+        for file in tqdm(deletable_directories,desc="Deleting %s"%key):
+            if os.path.isdir(file):
+                os.system("rm -r '%s'"%file)
+            else:
+                os.system("rm '%s'"%file)
+
+        # Cleaning up
+        ################################################################################################################
+        del self.log[key]
+        # saving changes #
+        if self.path:
+            with open(self.path, "w") as file:
+                toml.dump(self.log, file)
+        else:
+            pass
+
+        input("Press [enter] to continue...")
+
+
+class ICLog(ItemLog):
+    """
+    This is a fully functioning IC log
+    """
+    cdbg_string = "%sICLog:" % _dbg_string
+
+    def __init__(self, path=None):
+
+        # Initializing the log
+        ################################################################################################################
+        ItemLog.__init__(self, path=path)
+
+    @staticmethod
+    def load_default():
+        """
+        Loads the default log location.
+        Returns: The log object.
+        -------
+
+        """
+        return SimulationLog(path=os.path.join(CONFIG["system"]["directories"]["bin_directory"],
+                                               "IC_Logs",
+                                               "IC_log.log"))
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------- Main ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
-    set_log(_filename, output_type="STDOUT")
+    simlog = SimulationLog.load_default()
+    print(simlog.columns(type="any"))

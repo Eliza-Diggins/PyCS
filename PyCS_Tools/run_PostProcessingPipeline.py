@@ -18,7 +18,7 @@ import pathlib as pt
 from colorama import Fore, Style
 from PyCS_System.text_utils import generate_command_sequence, option_menu
 import time
-from PyCS_System.SimulationMangement import read_simulation_log
+from PyCS_System.SimulationMangement import SimulationLog
 import warnings
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -28,7 +28,7 @@ _location = "PyCS_Tools"
 _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
-
+simlog = SimulationLog.load_default()
 # - managing warnings -#
 if not CONFIG["system"]["logging"]["warnings"]:
     warnings.filterwarnings('ignore')
@@ -383,7 +383,6 @@ if __name__ == '__main__':
     log_print("Running run_PostProcessingPipeline.py.", _dbg_string, "debug")
     time.sleep(0.1)
 
-    simlog = read_simulation_log()  # reading the simulation log.
     ### Setting up the run ###
     ########################################################################################################################
     # - printing the title -#
