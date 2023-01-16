@@ -13,13 +13,12 @@ import numpy as np
 
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
-from PIL import Image
 import pynbody as pyn
 from PyCS_Core.Logging import set_log, log_print, make_error
 from PyCS_Analysis.Analysis_Utils import get_families, align_snapshot, make_pseudo_entropy
 from PyCS_Core.PyCS_Errors import *
 import matplotlib.pyplot as plt
-from PyCS_System.SimulationMangement import get_simulation_qty
+from PyCS_System.SimulationMangement import SimulationLog
 from utils import split
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
@@ -35,7 +34,7 @@ _location = "PyCS_Analysis"
 _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
-
+simlog = SimulationLog.load_default()
 # - managing warnings -#
 if not CONFIG["system"]["logging"]["warnings"]:
     warnings.filterwarnings('ignore')
@@ -158,48 +157,50 @@ def fix_array(array, qty, units):
     else:
         return array
 
+
 # Image Manipulation Functions
-#----------------------------------------------------------------------------------------------------------------------#
-def merge_alpha_images(alpha_arrays:list,colors:list):
+# ----------------------------------------------------------------------------------------------------------------------#
+def merge_alpha_images(alpha_arrays: list, colors: list):
     # Intro Debugging
     ####################################################################################################################
-    fdbg_string = "%smerge_alpha_images: "%_dbg_string
-    log_print("Merging a set of %s images."%(len(alpha_arrays)),fdbg_string,"debug")
+    fdbg_string = "%smerge_alpha_images: " % _dbg_string
+    log_print("Merging a set of %s images." % (len(alpha_arrays)), fdbg_string, "debug")
 
     # SETUP
     ####################################################################################################################
-    #- Are there actually arrays? -#
+    # - Are there actually arrays? -#
     if not len(alpha_arrays):
-        make_error(ValueError,fdbg_string,"The set of arrays cannot be empty.")
+        make_error(ValueError, fdbg_string, "The set of arrays cannot be empty.")
     elif len(alpha_arrays) != len(colors):
-        make_error(ValueError,fdbg_string,"The color list %s is not the same length as the arrays. (%s,%s)"%(colors,len(colors),len(alpha_arrays)))
+        make_error(ValueError, fdbg_string, "The color list %s is not the same length as the arrays. (%s,%s)" % (
+        colors, len(colors), len(alpha_arrays)))
     else:
-        pass # Nothing wrong
+        pass  # Nothing wrong
 
     # Generating the colormaps and normalizing the arrays
     ####################################################################################################################
-    #- Make Cmaps -#
-    cmaps = [mpl.colors.ListedColormap([i]) for i in colors] # generates the correct colormaps
+    # - Make Cmaps -#
+    cmaps = [mpl.colors.ListedColormap([i]) for i in colors]  # generates the correct colormaps
 
-
-    #- Making the base arrays -#
-    base_arrays = [cmap(array)[:,:,:-1] for cmap,array in zip(cmaps,alpha_arrays)] # grab the RBG values.
+    # - Making the base arrays -#
+    base_arrays = [cmap(array)[:, :, :-1] for cmap, array in zip(cmaps, alpha_arrays)]  # grab the RBG values.
 
     # Combining images
     ####################################################################################################################
-    #- multiplying by alphas -#
+    # - multiplying by alphas -#
     # These are now the individual images correctly normalized.
-    base_arrays = np.array([base_array*np.stack([alpha_array,alpha_array,alpha_array],axis=-1) for base_array,alpha_array in zip(base_arrays,alpha_arrays)])
+    base_arrays = np.array(
+        [base_array * np.stack([alpha_array, alpha_array, alpha_array], axis=-1) for base_array, alpha_array in
+         zip(base_arrays, alpha_arrays)])
 
-    #- Making the image -#
-    image = np.sum(base_arrays,axis=0)
+    # - Making the image -#
+    image = np.sum(base_arrays, axis=0)
 
-    #- renormalizing -#
+    # - renormalizing -#
     for i in range(3):
-        image[:,:,i] = (image[:,:,i]/np.amax(image[:,:,i]))*255
+        image[:, :, i] = (image[:, :, i] / np.amax(image[:, :, i])) * 255
 
     return image.astype("uint8")
-
 
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -540,7 +541,7 @@ def make_gas_dm_image(snapshot,
     # Generating the images
     ####################################################################################################################
 
-    final_image = merge_alpha_images([norm_gas(baryonic_array),norm_dm(dark_matter_array)],colors)
+    final_image = merge_alpha_images([norm_gas(baryonic_array), norm_dm(dark_matter_array)], colors)
     # - cleaning up -#
     del baryonic_array, dark_matter_array
     gc.collect()
@@ -606,7 +607,7 @@ def generate_image_sequence(simulation_directory, qty, multiprocess=True, nproc=
 
     ##- Getting the simulation name -##
     try:
-        simulation_name = get_simulation_qty("SimulationName", {"SimulationLocation": simulation_directory})[0]
+        simulation_name = simlog.match("SimulationLocation", "SimulationName", simulation_directory)[0]
     except Exception:
         ## Something went wrong ##
         simulation_name = pt.Path(simulation_directory).name
@@ -681,7 +682,7 @@ def generate_dm_baryon_image_sequence(simulation_directory, multiprocess=True, n
 
     ##- Getting the simulation name -##
     try:
-        simulation_name = get_simulation_qty("SimulationName", {"SimulationLocation": simulation_directory})[0]
+        simulation_name = simlog.match("SimulationLocation", "SimulationName", simulation_directory)[0]
     except Exception:
         ## Something went wrong ##
         simulation_name = pt.Path(simulation_directory).name
@@ -738,12 +739,10 @@ def generate_dm_baryon_image_sequence(simulation_directory, multiprocess=True, n
 # -----------------------------------------------------   MAIN   --------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
-
     set_log(_filename, output_type="STDOUT", level=10)
     data = pyn.load("/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500")
 
     align_snapshot(data)
 
-
-    make_gas_dm_image(data,save=False,colors=["purple","yellow"])
+    make_gas_dm_image(data, save=False, colors=["purple", "yellow"])
     plt.show()

@@ -48,13 +48,13 @@ setenv CLUSTEPDIR %s
 #- Generating the first of the binary systems -#
 python PyCS_Commands/ReplaceClustepIni.py %s
 cd $CLUSTEPDIR
-python %s/clustep.py -o %s/cluster1.dat
+python %s/clustep.py -o %s/cluster1.dat %s
 
 #- Generating the first of the binary systems -#
 cd $WORKDIR
 python PyCS_Commands/ReplaceClustepIni.py %s
 cd $CLUSTEPDIR
-python %s/clustep.py -o %s/cluster2.dat
+python %s/clustep.py -o %s/cluster2.dat %s
 
 #- Running SnapGadget -#
 cd $WORKDIR
@@ -63,21 +63,21 @@ cd $WORKDIR
 
 ### no-batch commands
 __command_variables_nobatch = """
-echo "\x1b[36mSetting up the batch script\x1b[30m"
+echo "\x1b[36mSetting up the batch script\x1b[37m"
 WORKDIR=%s
 python_exec=%s
 cd $WORKDIR
 CLUSTEPDIR=%s
-echo "\x1b[36mBuilding the first cluster\x1b[30m"
+echo "\x1b[36mBuilding the first cluster\x1b[37m"
 $python_exec PyCS_Commands/ReplaceClustepIni.py %s
 cd $CLUSTEPDIR
-$python_exec %s/clustep.py -o %s/cluster1.dat
-echo "\x1b[36mBuilding the second cluster\x1b[30m"
+$python_exec %s/clustep.py -o %s/cluster1.dat %s
+echo "\x1b[36mBuilding the second cluster\x1b[37m"
 cd $WORKDIR
 $python_exec PyCS_Commands/ReplaceClustepIni.py %s
 cd $CLUSTEPDIR
-$python_exec %s/clustep.py -o %s/cluster2.dat
-echo "\x1b[36mRunning snapgadget\x1b[30m"
+$python_exec %s/clustep.py -o %s/cluster2.dat %s
+echo "\x1b[36mRunning snapgadget\x1b[37m"
 #- Running SnapGadget -#
 cd $WORKDIR
 %s
@@ -139,8 +139,13 @@ if __name__ == '__main__':
         pt.Path.mkdir(pt.Path(param_file_path).parents[0], parents=True)
 
     # - spawn in the correct parameters file -#
+    tag_strings = {"1":"","2":""}
     for id in ["1", "2"]:
         write_clustep_ini(__binary_options_dict["Cluster %s" % id], param_file_path % id)
+
+        ##- Writing in the correct tags -##
+        for tag,item in __binary_options_dict["Cluster %s"% id]["tags"].items():
+            tag_strings[id] += (tag+ " " if item[0]=="True" else "")
 
     # - adding everything to the log -#
     add_ic_file(os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"], out_name),
@@ -170,9 +175,12 @@ if __name__ == '__main__':
             param_file_path % "1",
             clustep_exec,
             CONFIG["system"]["directories"]["temp_directory"],
+            tag_strings["1"],
             param_file_path % "2",
             clustep_exec,
             CONFIG["system"]["directories"]["temp_directory"],
+            tag_strings["2"],
+
             snapgadet_command
         )
         os.system(command_string)
@@ -197,9 +205,11 @@ if __name__ == '__main__':
             param_file_path % "1",
             clustep_exec,
             CONFIG["system"]["directories"]["temp_directory"],
+            tag_strings["1"],
             param_file_path % "2",
             clustep_exec,
             CONFIG["system"]["directories"]["temp_directory"],
+            tag_strings["2"],
             snapgadet_command
         )
         write_slurm_script(command_string, type="BINARY_BUILD")

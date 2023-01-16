@@ -135,6 +135,33 @@ def print_option_dict(dict, location, header=None):
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Keyboard --------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+def yes_no_on_press(key):
+    """
+    This is a key no prompt key logger.
+    Parameters
+    ----------
+    key: the input key.
+
+    Returns
+    -------
+
+    """
+    # grabbing globals
+    global __GSV
+
+    ## Managing key entering ##
+    try:
+        if key == "left" or key == "right":
+            # move
+            __GSV["status"] = not __GSV["status"] # This changes the status. To use the logger, the key must exist.
+            stop_listening()
+        elif key == "enter":
+            __GSV["stop"] = True
+            stop_listening()
+        else:
+            pass
+    except AttributeError as ex:
+        print(ex)
 def get_options_on_press(key):
     """
     Key press function for get options.
@@ -244,6 +271,35 @@ def generate_command_on_press(key):
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ---------------------------------------------------- Functions --------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+def get_yes_no(header_message):
+    """
+    Gets a yes or no response from the user.
+    Parameters
+    ----------
+    header_message: The message to send to the header.
+
+    Returns: True or False
+    -------
+
+    """
+    global __GSV # Grabbing the global
+
+    __GSV["status"] = False
+    __GSV["stop"] = False
+    yes_string = "%s: [%s|%s]"%(header_message,Fore.BLACK+Back.WHITE+"YES"+Style.RESET_ALL,"NO")
+    no_string = "%s: [%s|%s]"%(header_message,"YES",Fore.BLACK+Back.WHITE+"NO"+Style.RESET_ALL)
+
+    while not __GSV["stop"]:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        if __GSV["status"] == True:
+            print(yes_string)
+        else:
+            print(no_string)
+
+        listen_keyboard(on_press=yes_no_on_press)
+
+    return __GSV["status"]
+
 def print_title(title, author, width=64, str_struct="#-+-#", boundary="|"):
     """
     Prints the title and author for a given program without having to hard code in different scripts

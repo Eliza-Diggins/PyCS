@@ -54,7 +54,7 @@ cd $CMDDIR
 cd $WORKDIR
 
 #- Main Command -#
-%s clustep.py -o '%s'
+%s clustep.py -o '%s' %s
 """
 clustep_exec = CONFIG["system"]["executables"]["CLUSTEP_install"]  # this is the location of the clustep.py exec.
 python_exec = CONFIG["system"]["executables"]["python_full"]  # this is the command of the full python implementation.
@@ -109,6 +109,15 @@ if __name__ == '__main__':
     # - spawn in the correct parameters file -#
     write_clustep_ini(clustep_config, param_file_path)
 
+    #- creating tags -#
+    tag_string = ""
+    for tag,value in clustep_config["tags"].items():
+        # Cycling through all of the tags and checking them
+        if value[0] == "True":
+            tag_string += "%s "%tag
+        else:
+            pass
+
     # - adding everything to the log -#
     add_ic_file(os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"], out_name),
                 param_files=[param_file_path],
@@ -127,9 +136,9 @@ if __name__ == '__main__':
         os.chdir(clustep_exec)  # go to installation location
 
         # running the command in the correct python version #
-        os.system("%s %s -o %s" % (python_exec, "clustep.py",
+        os.system("%s %s -o %s %s" % (python_exec, "clustep.py",
                                    os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"],
-                                                out_name)))
+                                                out_name),tag_string))
         # returning to correct directory.
         os.chdir(usr_dir)
     else:
@@ -145,7 +154,8 @@ if __name__ == '__main__':
                                              python_exec,
                                              os.path.join(
                                                  CONFIG["system"]["directories"]["initial_conditions_directory"],
-                                                 out_name)),
+                                                 out_name),
+                                             tag_string),
                            name=slurm_name,
                            type="CLUSTEP",
                            batch=True)

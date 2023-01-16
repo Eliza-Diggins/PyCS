@@ -13,7 +13,7 @@ import argparse
 from PyCS_Core.Configuration import read_config, _configuration_path
 from PyCS_Core.Logging import set_log, log_print, make_error
 import pathlib as pt
-from PyCS_System.SimulationMangement import read_ic_log
+from PyCS_System.SimulationMangement import ICLog
 from PyCS_System.SpecConfigs import read_clustep_ini
 import toml
 from datetime import datetime
@@ -39,7 +39,7 @@ _location = "PyCS_Tools"
 _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s: " % (_location, _filename)
 CONFIG = read_config(_configuration_path)
-
+iclog = ICLog.load_default()
 if not CONFIG["system"]["logging"]["warnings"]:
     warnings.filterwarnings('ignore')
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -245,8 +245,6 @@ if __name__ == '__main__':
     os.mkdir(os.path.join(report_dir, report_name))
     # Reading from the IC log
     ####################################################################################################################
-    iclog = read_ic_log()  # reading the IC log.
-
     if not initial_condition_file in iclog:  # we don't have an entry.
         make_error(ValueError, _dbg_string, "Failed to find an IC log entry for %s." % initial_condition_file)
         exit()

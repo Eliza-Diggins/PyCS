@@ -20,7 +20,7 @@ import pynbody as pyn
 from datetime import datetime
 from PyCS_System.text_utils import get_options, set_simulation_information
 import time
-from PyCS_System.SimulationMangement import add_simulation
+from PyCS_System.SimulationMangement import SimulationLog
 from colorama import Fore, Style
 import warnings
 
@@ -31,7 +31,7 @@ _location = "PyCS_Tools"
 _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
-
+simlog = SimulationLog.load_default()
 # - managing warnings -#
 if not CONFIG["system"]["logging"]["warnings"]:
     warnings.filterwarnings('ignore')
@@ -293,17 +293,17 @@ if __name__ == '__main__':
     ### Providing additional data ###
     sim_data["ICFile"] = selected_ic_file  # grab the IC file path
     sim_data["SLURMDate"] = datetime.now()
-    sim_data["Mode"] = ramses_config["CORE"]["software"][0]
+    sim_data["Software"] = ramses_config["CORE"]["software"][0]
     sim_data["NMLFile"] = os.path.join(CONFIG["system"]["directories"]["RAMSES_nml_directory"], name)
 
     #- setting the output location -#
-    if "RAYMOND" in sim_data["Mode"]:
+    if "RAYMOND" in sim_data["Software"]:
         sim_data["SimulationLocation"] = os.path.join(raymond_output_file, sim_data["SimulationName"])
     else:
         sim_data["SimulationLocation"] = os.path.join(ramses_output_file, sim_data["SimulationName"])
 
     ### Generating the sim
-    add_simulation(**sim_data)
+    simlog.append(sim_data)
 
     # Issuing the memory warning
     ####################################################################################################################

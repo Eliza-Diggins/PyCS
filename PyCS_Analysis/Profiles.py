@@ -18,7 +18,7 @@ import gc
 import warnings
 from multiprocessing import current_process
 from PyCS_Analysis.Analysis_Utils import align_snapshot
-from PyCS_System.SimulationMangement import get_simulation_qty
+from PyCS_System.SimulationMangement import SimulationLog
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 import numpy as np
@@ -30,6 +30,7 @@ _location = "PyCS_Analysis"
 _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
+simlog = SimulationLog.load_default()
 
 # - managing warnings -#
 if not CONFIG["system"]["logging"]["warnings"]:
@@ -652,7 +653,7 @@ def generate_profile_sequence(simulation_directory, qty, multiprocess=True, npro
 
     ##- Getting the simulation name -##
     try:
-        simulation_name = get_simulation_qty("SimulationName", {"SimulationLocation": simulation_directory})[0]
+        simulation_name = simlog.match("SimulationLocation", "SimulationName", simulation_directory)[0]
     except Exception:
         ## Something went wrong ##
         simulation_name = pt.Path(simulation_directory).name

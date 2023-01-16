@@ -350,9 +350,14 @@ def write_clustep_ini(dict, filename):
     """
     with open(filename, "w+") as file:
         for header in dict:
-            file.write("[%s]\n" % header)
-            for option in dict[header]:
-                file.write("%s=%s\n" % (option, str(dict[header][option][0])))
+            if header != "tags":
+                # These are the actually necessary options for the .ini file.
+                file.write("[%s]\n" % header)
+                for option in dict[header]:
+                    file.write("%s=%s\n" % (option, str(dict[header][option][0])))
+            else:
+                # These are the "tag" options which need to be passed in the command string so we skip them.
+                pass
 
 
 def read_clustep_ini(file_path):
