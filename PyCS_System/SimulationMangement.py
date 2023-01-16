@@ -221,12 +221,15 @@ class SimulationLog(ItemLog):
         -------
 
         """
+        # Loading the log from CONFIG location
+        ################################################################################################################
         log = SimulationLog(path=os.path.join(CONFIG["system"]["directories"]["bin_directory"],
                                                "Simulation_Logs",
                                                "simlog.log"))
 
-        #- Performing a check for updates -#
-        ##- Checking for missing locations -##
+        # UPDATE CHECK
+        ################################################################################################################
+        #- Checking for missing locations -#
         simlocations = [value["SimulationLocation"] for value in log.values() if "SimulationLocation" in value]
 
         # look for RAMSES
@@ -253,6 +256,20 @@ class SimulationLog(ItemLog):
                             ),
                             "SimulationName":"UNK-%s-%s"%(datetime.now().strftime('%m-%d-%Y'),id)})
 
+        #- Checking for figure sets -#
+        for simulation,data in log.items():
+            if data["SimulationName"] in os.listdir(CONFIG["system"]["directories"]["figures_directory"]):
+                # There is data in the figures directory.
+                log[simulation]["has_figures"] = True
+                log[simulation]["GeneratedImages"] = [dir for dir in os.listdir(os.path.join(CONFIG["system"]["directories"]["figures_directory"],data["SimulationName"])) if "Profile" not in dir]
+                log[simulation]["GeneratedProfiles"] = [dir for dir in os.listdir(os.path.join(CONFIG["system"]["directories"]["figures_directory"],data["SimulationName"])) if "Profile" in dir]
+
+                log[simulation]["NProfiles"],log[simulation]["NImages"] = len(log[simulation]["GeneratedImages"]),len(log[simulation]["GeneratedProfiles"])
+            else:
+                log[simulation]["has_figures"] = False
+
+        # Returning
+        ################################################################################################################
         return log
 
     def named_log(self):
