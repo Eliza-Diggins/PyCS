@@ -111,7 +111,6 @@ def print_simlog(calcs=None, location=None, message=None):
     calcs: The calculations to use. If not specified, then passes.
     location: The location (should be an index)
 
-    Returns: None
     -------
 
     """
@@ -201,7 +200,6 @@ def print_columns(column_selections, location=None):
     # - Calculations -#
     max_length = np.amax(
         [np.amax([len(key) for key in column_selections]), len(h1_string), len(h2_string)]) + 2  # grab the lengths
-    leftovers = {key: max_length - len(key) for key in column_selections}
 
     # - Printing -#
 
@@ -424,7 +422,7 @@ if __name__ == '__main__':
                 # - Getting user confirmation -#
                 try:
                     user_sure = get_yes_no("Delete simulation %s at %s" % (
-                    simlog[simulation]["SimulationName"], simlog[simulation]["SimulationLocation"]))
+                        simlog[simulation]["SimulationName"], simlog[simulation]["SimulationLocation"]))
                 except Exception:
                     # - Something was missing -#
                     message = Fore.RED + "Failed to remove the simulation %s because it does not have a location." + Style.RESET_ALL

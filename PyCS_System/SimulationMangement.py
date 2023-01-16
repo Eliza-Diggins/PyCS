@@ -221,9 +221,39 @@ class SimulationLog(ItemLog):
         -------
 
         """
-        return SimulationLog(path=os.path.join(CONFIG["system"]["directories"]["bin_directory"],
+        log = SimulationLog(path=os.path.join(CONFIG["system"]["directories"]["bin_directory"],
                                                "Simulation_Logs",
                                                "simlog.log"))
+
+        #- Performing a check for updates -#
+        ##- Checking for missing locations -##
+        simlocations = [value["SimulationLocation"] for value in log.values() if "SimulationLocation" in value]
+
+        # look for RAMSES
+        try:
+            locatable_sims = [os.path.join(CONFIG["system"]["directories"]["RAMSES_simulations_directory"],directory) for directory in os.listdir(CONFIG["system"]["directories"]["RAMSES_simulations_directory"])]
+        except FileNotFoundError:
+            locatable_sims = []
+
+        # Look for RaYMOND
+        try:
+            locatable_sims += [os.path.join(CONFIG["system"]["directories"]["RAYMOND_simulations_directory"], directory)
+                              for directory in
+                              os.listdir(CONFIG["system"]["directories"]["RAYMOND_simulations_directory"])]
+        except FileNotFoundError:
+            pass
+
+        for id,sim_dir in enumerate(locatable_sims):
+            if sim_dir not in simlocations:
+                # This is a novel simulation that we want to add #
+                log.append({"SimulationLocation":sim_dir,
+                            "Software":(
+                                "RAMSES" if CONFIG["system"]["directories"]["RAMSES_simulations_directory"] in sim_dir else
+                                "RAYMOND_NeS"
+                            ),
+                            "SimulationName":"UNK-%s-%s"%(datetime.now().strftime('%m-%d-%Y'),id)})
+
+        return log
 
     def named_log(self):
         """
