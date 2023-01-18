@@ -51,7 +51,8 @@ if __name__ == '__main__':
                         help="The simulation directory. Only one needs to be specified")
     parser.add_argument("-s", "--save", action="store_true", help="Use to save the image.")
     parser.add_argument("-c", "--colors", nargs="+", help="The 2 colors to use for DM and baryons.")
-    parser.add_argument("-v", "--vbounds", nargs="+", help="The colorbounds if desired.", default=None)
+    parser.add_argument("-vg", "--vbounds_gas", nargs="+", help="The colorbounds if desired for gas.", default=None)
+    parser.add_argument("-vdm","--vbounds_dm",nargs="+",help="The colorbounds to use for DM.",default=None)
     parser.add_argument("-u", "--units", help="The output units to use")
     parser.add_argument("-tu", "--time_units", help="The time units to use in the output.")
     parser.add_argument("-r", '--resolution', help="The resolution to use", type=int)
@@ -67,11 +68,15 @@ if __name__ == '__main__':
     cdbg_string = Fore.CYAN + Style.BRIGHT + _dbg_string + Style.RESET_ALL + " [" + Fore.GREEN + "Command Wizard" + Style.RESET_ALL + "]"
     # ArgCHECK
     ########################################################################################################################
-    if args.vbounds != None:
-        vmin, vmax = tuple([float(j) for j in args.vbounds])
+    if args.vbounds_gas != None:
+        vmin_gas, vmax_gas = tuple([float(j) for j in args.vbounds_gas])
     else:
-        vmin, vmax = None, None
-
+        vmin_gas, vmax_gas = None, None
+    
+    if args.vbounds_dm != None:
+        vmin_dm, vmax_dm = tuple([float(j) for j in args.vbounds_dm])
+    else:
+        vmin_dm, vmax_dm = None, None
     # - Managing colors -#
     if args.colors != None:
         colors = [str(i) for i in args.colors]
@@ -120,8 +125,10 @@ if __name__ == '__main__':
     align_snapshot(simSnap)
 
     kwargs = {
-        "vmin": vmin,
-        "vmax": vmax,
+        "vmin_gas": vmin_gas,
+        "vmax_gas": vmax_gas,
+        "vmin_dm": vmin_dm,
+        "vmax_dm": vmax_dm,
         "resolution": args.resolution,
         "units": args.units,
         "time_units": args.time_units,

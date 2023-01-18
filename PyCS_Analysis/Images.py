@@ -95,6 +95,12 @@ __quantities = {
         "fancy": "Density",
         "families": ["gas"]
     },
+    "2rho": {
+        "unit": "Msol^2 kpc^-6",
+        "fancy": "Density${}^2$",
+        "families": ["gas"]
+    }
+    ,
     "entropy": {
         "unit": "keV cm^2",
         "fancy": "Entropy",
@@ -335,7 +341,6 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
         kwargs["units"] = set_units(qty)
 
     # - Managing fix units -#
-
     if qty == "temp":  # ----> we feed this into the fix units function.
         fix_units = kwargs["units"]
         kwargs["units"] = pyn.units.Unit("K")
@@ -349,13 +354,13 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
 
     for family in families:
         ### Cycle through each family and generate the image array.
-        try:
-            output_array += pyn.plot.sph.image(snapshot[family], qty=qty, noplot=True, **kwargs, threaded=False)
-            log_print("Plotted family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
+        #try:
+        output_array += pyn.plot.sph.image(snapshot[family], qty=qty, noplot=True, **kwargs, threaded=False)
+        log_print("Plotted family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
                       fdbg_string, "info")
-        except Exception:
-            log_print("Failed to plot family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
-                      fdbg_string, "error")
+        #except Exception:
+        #    log_print("Failed to plot family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
+        #              fdbg_string, "error")
 
     # RETURNING
     ########################################################################################################################
@@ -478,8 +483,10 @@ def make_plot(snapshot,
 def make_gas_dm_image(snapshot,
                       save=CONFIG["Visualization"]["default_figure_save"],
                       end_file=None,
-                      vmin=critical_density,
-                      vmax=None,
+                      vmin_dm=critical_density,
+                      vmax_dm=None,
+                      vmin_gas=critical_density,
+                      vmax_gas =None,
                       colors=None,
                       time_units=pyn.units.Unit(CONFIG["units"]["default_time_unit"]),
                       length_units=CONFIG["units"]["default_length_unit"],
@@ -514,24 +521,31 @@ def make_gas_dm_image(snapshot,
 
     if isinstance(time_units, str):
         time_units = pyn.units.Unit(time_units)
-    # - Fetching the necessary images -#
 
+    # Generating the plots
+    ####################################################################################################################
+    # building the images #
     dark_matter_array = generate_image_array(snapshot, "rho", families=["dm"], **kwargs)
     baryonic_array = generate_image_array(snapshot, "rho", families=["gas"], **kwargs)
 
     # - creating norms -#
-    if not vmax:
-        vmax_dm, vmax_gas = np.amax(dark_matter_array), np.amax(baryonic_array)  # grabbing vmins and vmaxs.
+    if not vmax_dm:
+        vmax_dm = np.amax(dark_matter_array)  # grabbing vmins and vmaxs.
     else:
-        vmax_dm, vmax_gas = vmax, vmax
+        vmax_dm = vmax_dm
+
+    if not vmax_gas:
+        vmax_gas = np.amax(baryonic_array)
+    else:
+        vmax_gas = vmax_gas
     # setting vmin
     ##- Recognize that if vmin is united, then we have to change to correct units. if no, leave as float.
     try:
-        vmin = vmin.in_units(kwargs["units"])
+        vmin_gas,vmin_dm = vmin_gas.in_units(kwargs["units"]),vmin_dm.in_units(kwargs["units"])
     except Exception:
-        vmin = vmin  # we just set trivially.
+        vmin_gas,vmin_dm = vmin_gas,vmin_dm  # we just set trivially.
     ##- Generating the norms -##
-    norm_dm, norm_gas = mpl.colors.LogNorm(vmin=vmin, vmax=vmax_dm, clip=True), mpl.colors.LogNorm(vmin=vmin,
+    norm_dm, norm_gas = mpl.colors.LogNorm(vmin=vmin_dm, vmax=vmax_dm, clip=True), mpl.colors.LogNorm(vmin=vmin_gas,
                                                                                                    vmax=vmax_gas,
                                                                                                    clip=True)
 
@@ -744,5 +758,5 @@ if __name__ == '__main__':
 
     align_snapshot(data)
 
-    make_gas_dm_image(data, save=False, colors=["purple", "yellow"])
+    make_gas_dm_image(data, save=False, colors=["orangered", "lime"],vmin_dm=1e5,vmin_gas=1e4)
     plt.show()

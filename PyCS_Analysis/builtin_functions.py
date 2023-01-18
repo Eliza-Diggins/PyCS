@@ -6,6 +6,7 @@
 import os
 import pathlib as pt
 import sys
+
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 import numpy as np
 from PyCS_Core.Logging import set_log, log_print, make_error
@@ -14,7 +15,7 @@ from PyCS_Core.PyCS_Errors import *
 from scipy.integrate import solve_ivp
 import pynbody as pyn
 import warnings
-from copy import deepcopy
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -35,7 +36,7 @@ mass_fraction = 0.6  # The standard mass fraction. This value is from Schneider 
 boltzmann_constant = 1.381e-23 * pyn.units.Unit("J K^-1")
 G = 6.675e-11 * pyn.units.Unit("N m^2 kg^-2")
 m_p = 1.672621911e-27 * pyn.units.Unit("kg")
-rho_critical = 8.5e-27 * pyn.units.Unit("kg m^-3") # universe critical density.
+rho_critical = 8.5e-27 * pyn.units.Unit("kg m^-3")  # universe critical density.
 
 # - smoothing kernel -#
 smth_kern = lambda x: (1 / np.sqrt(2 * np.pi)) * np.exp((-(x) ** 2) / 5)
@@ -47,7 +48,8 @@ smth_kern = lambda x: (1 / np.sqrt(2 * np.pi)) * np.exp((-(x) ** 2) / 5)
 def smooth_func(function, bandwidth=10):
     return lambda r: np.convolve(function(r), np.ones(bandwidth) / bandwidth, mode="same")
 
-def find_rx(snapshot,p=500*rho_critical):
+
+def find_rx(snapshot, p=500 * rho_critical):
     """
     Determines the maximal radius of the ``snapshot`` at which the total density is >= ``p``.
     Parameters
@@ -62,19 +64,21 @@ def find_rx(snapshot,p=500*rho_critical):
     # Intro debugging
     ####################################################################################################################
     fdbg_string = "%sfind_rx: "
-    log_print("Looking for %s radius in %s."%(p,snapshot),fdbg_string,"debug")
+    log_print("Looking for %s radius in %s." % (p, snapshot), fdbg_string, "debug")
 
     # Setup
     ####################################################################################################################
-    #- generating the necessary profile -#
-    profile = pyn.analysis.profile.Profile(snapshot,nbins=1000,ndim=3)
+    # - generating the necessary profile -#
+    profile = pyn.analysis.profile.Profile(snapshot, nbins=1000, ndim=3)
 
-    rbins,density = profile["rbins"],profile["density"]
+    rbins, density = profile["rbins"], profile["density"]
 
     # Computing
     ####################################################################################################################
     rbins = rbins[np.where(density >= p)]
     return np.amax(rbins)
+
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Profiles -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -257,17 +261,70 @@ def dehnen_mass_profile(mass,
     ####################################################################################################################
     return lambda r: conversion_factor * mass * ((r) / (r + a)) ** (3 - gamma)
 
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Mathematics --------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-#- These are all functions related to useful analysis.
+# - These are all functions related to useful analysis.
+def generate_xray_emissivity(snapshot, emin, emax):
+    """
+    Generates the x-ray emissivity for the cluster based on the given snapshot and the specified emin, emax.
+
+    We use the formula
+
+    e_ff = n_e^2 * G(E,T) * (kT)^(-1/2) exp(-E/kT)
+
+    Which, after subsequent calculations simplifies to
+
+    rho_g^2 * (kT)^(1/2) * (0.9/(1.252 m_p)^2) * integral from E_min/kT to E_max/kT x^-0.3 * exp(-x).
+
+    Parameters
+    ----------
+    snapshot: The snapshot on which to compute the value.
+    emin: The minimum energy for the computation.
+    emax: The maximum energy for the computation.
+
+    Returns
+    -------
+
+    """
+    # Intro debugging
+    ####################################################################################################################
+    fdbg_string = "%sgenerate_xray_emissivity: "
+    log_print("Generating x-ray emissivity map for %s." % snapshot, fdbg_string, "debug")
+
+    # SETUP and TYPE COERCION
+    ####################################################################################################################
+    # - Forcing corrected energy units -#
+    if isinstance(emin, pyn.units.CompositeUnit):  # These are united.
+        emin = emin.in_units("keV")
+
+    if isinstance(emax, pyn.units.CompositeUnit):
+        emax = emax.in_units("keV")
+
+    for e_arg in [emax, emin]:
+        assert isinstance(e_arg, (
+        float, int)), "One or both of the energy arguments could not be coerced into a float (%s)." % e_arg
+
+    # Defining subscope integral
+    ####################################################################################################################
+    def __subscope_integral(T):
+        # REQUIRE T UNITLESS in K.
+        range_space = np.linspace(emin / (8.617e-8 * T), emax / (8.617e-8 * T), 100)
+        integrand = range_space ^ (-0.3) * np.exp(range_space)
+
+        return np.trapz(integrand, x=range_space)
+
+    # Generating the field
+    ####################################################################################################################
+    #TODO: IN PROGRESS, NOT FINISHED!
 def get_collision_parameters(masses,
                              impact_parameter,
                              initial_velocity,
                              initial_separation,
                              events=None,
-                             time_length=10*pyn.units.Unit("Gyr"),
-                             max_step=1*pyn.units.Unit("Myr")):
+                             time_length=10 * pyn.units.Unit("Gyr"),
+                             max_step=1 * pyn.units.Unit("Myr")):
     """
     Generates the collision parameter state that we expect from the cluster interaction.
     Parameters
@@ -284,80 +341,80 @@ def get_collision_parameters(masses,
     """
     # initial debug
     ####################################################################################################################
-    fdbg_string = "%sget_collision_parameters: "%_dbg_string
-    log_print("Getting collision parameters for collision with (m=%s,b=%s,v=%s,dx=%s)"%(masses,
-                                                                                        impact_parameter,
-                                                                                        initial_velocity,
-                                                                                        initial_separation),
+    fdbg_string = "%sget_collision_parameters: " % _dbg_string
+    log_print("Getting collision parameters for collision with (m=%s,b=%s,v=%s,dx=%s)" % (masses,
+                                                                                          impact_parameter,
+                                                                                          initial_velocity,
+                                                                                          initial_separation),
               fdbg_string,
               "debug")
 
     # Managing units
     ####################################################################################################################
-    #- dealing with masses -#
-    for id,mass in enumerate(masses):
-        if not isinstance(mass,(pyn.units.CompositeUnit,pyn.array.SimArray)):
-            masses[id] = mass*pyn.units.Unit(CONFIG["units"]["default_mass_unit"])
+    # - dealing with masses -#
+    for id, mass in enumerate(masses):
+        if not isinstance(mass, (pyn.units.CompositeUnit, pyn.array.SimArray)):
+            masses[id] = mass * pyn.units.Unit(CONFIG["units"]["default_mass_unit"])
 
-    #- dealing with others -#
-    params = [impact_parameter,initial_velocity,initial_separation]
-    for item,unit in zip([0,1,2],[CONFIG["units"]["default_length_unit"],
-                                CONFIG["units"]["default_velocity_unit"],
-                                CONFIG["units"]["default_length_unit"]]):
-        if not isinstance(params[item],pyn.units.CompositeUnit):
+    # - dealing with others -#
+    params = [impact_parameter, initial_velocity, initial_separation]
+    for item, unit in zip([0, 1, 2], [CONFIG["units"]["default_length_unit"],
+                                      CONFIG["units"]["default_velocity_unit"],
+                                      CONFIG["units"]["default_length_unit"]]):
+        if not isinstance(params[item], pyn.units.CompositeUnit):
             # This item doesn't have units yet.
-            params[item] = params[item]*pyn.units.Unit(unit)
+            params[item] = params[item] * pyn.units.Unit(unit)
         else:
             pass
 
     # Generating initial data
     ####################################################################################################################
-    #- coercing units -#
+    # - coercing units -#
     # This is all designed for dr/dt in km/s and r in km.
-    G_temp = G.in_units("km^3 Msol^-1 s^-2") # correcting G units
+    G_temp = G.in_units("km^3 Msol^-1 s^-2")  # correcting G units
     mass = sum([m.in_units("Msol") for m in masses])
-    b,v_0,x_0 = params[0].in_units("km"),params[1].in_units("km s^-1"),params[2].in_units("km")
+    b, v_0, x_0 = params[0].in_units("km"), params[1].in_units("km s^-1"), params[2].in_units("km")
 
-    #- Making IC computations -#
-    r_0 = np.sqrt(b**2+x_0**2) # initial total separation.
-    dr_0 = v_0*(x_0/r_0) # ---> this is v_0 cos(theta).
-    phi_0 = np.arctan(b/x_0)
-
-
+    # - Making IC computations -#
+    r_0 = np.sqrt(b ** 2 + x_0 ** 2)  # initial total separation.
+    dr_0 = v_0 * (x_0 / r_0)  # ---> this is v_0 cos(theta).
+    phi_0 = np.arctan(b / x_0)
 
     # Solving
     ####################################################################################################################
-    function = lambda t,r: [r[1],-((G_temp*mass)/(r[0]**2)) + (b*v_0)**2/(r[0]**3),(b*v_0)/(r[0]**2)]
-    solved_data = solve_ivp(function,(0,time_length.in_units("s")),[r_0,dr_0,phi_0],events=events,max_step=max_step.in_units("s"),vectorized=True)
+    function = lambda t, r: [r[1], -((G_temp * mass) / (r[0] ** 2)) + (b * v_0) ** 2 / (r[0] ** 3),
+                             (b * v_0) / (r[0] ** 2)]
+    solved_data = solve_ivp(function, (0, time_length.in_units("s")), [r_0, dr_0, phi_0], events=events,
+                            max_step=max_step.in_units("s"), vectorized=True)
     # post_processing
     ####################################################################################################################
-    solved_data.y[0] = solved_data.y[0]*pyn.units.Unit("km").ratio(pyn.units.Unit("kpc"))
-    solved_data.t = solved_data.t *pyn.units.Unit("s").ratio(pyn.units.Unit("Gyr"))
-    #- Fixing the units of the events -#
-    for id,event in enumerate(solved_data.t_events):
+    solved_data.y[0] = solved_data.y[0] * pyn.units.Unit("km").ratio(pyn.units.Unit("kpc"))
+    solved_data.t = solved_data.t * pyn.units.Unit("s").ratio(pyn.units.Unit("Gyr"))
+    # - Fixing the units of the events -#
+    for id, event in enumerate(solved_data.t_events):
         if len(event) != 0:
             solved_data.t_events[id] = [ev * pyn.units.Unit("s").ratio(pyn.units.Unit("Gyr")) for ev in event]
 
-
-
-    for id,event in enumerate(solved_data.y_events): # this iterates through each event function
+    for id, event in enumerate(solved_data.y_events):  # this iterates through each event function
         # we fix the 0th id of all
         if len(event) != 0:
-            solved_data.y_events[id][:,0] = [event_case[0] * pyn.units.Unit("km").ratio(pyn.units.Unit("kpc")) for event_case in event]
-
+            solved_data.y_events[id][:, 0] = [event_case[0] * pyn.units.Unit("km").ratio(pyn.units.Unit("kpc")) for
+                                              event_case in event]
 
     # creating the com information
     solved_data.com_y_events = []
-    for id,event in enumerate(solved_data.y_events):
+    for id, event in enumerate(solved_data.y_events):
         if len(event) != 0:
-            solved_data.com_y_events.append(np.array([[(-masses[0].in_units("Msol")/mass)*solved_data.y_events[id][j][0],
-                                                   (masses[1].in_units("Msol")/mass)*solved_data.y_events[id][j][0]] for j in range(len(event))]))
+            solved_data.com_y_events.append(
+                np.array([[(-masses[0].in_units("Msol") / mass) * solved_data.y_events[id][j][0],
+                           (masses[1].in_units("Msol") / mass) * solved_data.y_events[id][j][0]] for j in
+                          range(len(event))]))
         else:
             solved_data.com_y_events.append(np.array([]))
 
-
-    #- adding COM -#
-    solved_data.com_y = [(-masses[0].in_units("Msol")/mass)*solved_data.y[0],(masses[1].in_units("Msol")/mass)*solved_data.y[0]]
+    # - adding COM -#
+    solved_data.com_y = [(-masses[0].in_units("Msol") / mass) * solved_data.y[0],
+                         (masses[1].in_units("Msol") / mass) * solved_data.y[0]]
     return solved_data
 
 
@@ -365,16 +422,17 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     set_log(_filename, output_type="STDOUT")
-    data=get_collision_parameters([1e15,1e15],2,-1000,6,events=[lambda t,y: y[0]-float(500*pyn.units.Unit("kpc").in_units("km")),
-                                                                lambda t,y: y[0]-float(1000*pyn.units.Unit("kpc").in_units("km"))])
-    print(data.t_events,data.com_y_events,data.y_events)
-    plt.plot(data.com_y[0]*np.cos(data.y[2]),data.com_y[0]*np.sin(data.y[2]))
+    data = get_collision_parameters([1e15, 1e15], 2, -1000, 6,
+                                    events=[lambda t, y: y[0] - float(500 * pyn.units.Unit("kpc").in_units("km")),
+                                            lambda t, y: y[0] - float(1000 * pyn.units.Unit("kpc").in_units("km"))])
+    print(data.t_events, data.com_y_events, data.y_events)
+    plt.plot(data.com_y[0] * np.cos(data.y[2]), data.com_y[0] * np.sin(data.y[2]))
     plt.plot(data.com_y[1] * np.cos(data.y[2]), data.com_y[1] * np.sin(data.y[2]))
-    for y_event,com_event,c in zip(data.y_events,data.com_y_events,["red","green"]):
-        plt.scatter(com_event[:][0]*np.cos(y_event[0,2]),com_event[:][0]*np.sin(y_event[0,2]),color=c)
+    for y_event, com_event, c in zip(data.y_events, data.com_y_events, ["red", "green"]):
+        plt.scatter(com_event[:][0] * np.cos(y_event[0, 2]), com_event[:][0] * np.sin(y_event[0, 2]), color=c)
         plt.scatter(com_event[:][1] * np.cos(y_event[1, 2]), com_event[:][1] * np.sin(y_event[1, 2]), color=c)
     plt.show()
-    plt.plot(data.t,data.y[1])
-    plt.plot(data.t,data.y[2])
+    plt.plot(data.t, data.y[1])
+    plt.plot(data.t, data.y[2])
 
     plt.show()
