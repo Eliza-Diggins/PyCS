@@ -12,7 +12,7 @@ sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
 from PyCS_Core.Logging import set_log, log_print
 from PyCS_System.text_utils import print_title, get_options
-from PyCS_System.SimulationMangement import add_ic_file
+from PyCS_System.SimulationMangement import ICLog
 from PyCS_System.SpecConfigs import read_clustep_config, write_clustep_ini, write_slurm_script
 import pathlib as pt
 import argparse
@@ -26,7 +26,7 @@ _location = "PyCS_Tools"
 _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
-
+iclog = ICLog.load_default()
 # - managing warnings -#
 if not CONFIG["system"]["logging"]["warnings"]:
     warnings.filterwarnings('ignore')
@@ -148,9 +148,8 @@ if __name__ == '__main__':
             tag_strings[id] += (tag+ " " if item[0]=="True" else "")
 
     # - adding everything to the log -#
-    add_ic_file(os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"], out_name),
-                param_files=[param_file_path % i for i in ["1", "2"]],
-                type="cluster-binary")
+    iclog[os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"], out_name)] = {"param_files":[param_file_path % i for i in ["1", "2"]],
+                "type":"cluster-binary"}
 
     # Running
     ####################################################################################################################
