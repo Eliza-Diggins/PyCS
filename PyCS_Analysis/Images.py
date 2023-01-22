@@ -14,6 +14,7 @@ import numpy as np
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
 import pynbody as pyn
+from PyCS_Analysis.plot_utils import get_color_binary_colormap
 from PyCS_Core.Logging import set_log, log_print, make_error
 from PyCS_Analysis.Analysis_Utils import get_families, align_snapshot, make_pseudo_entropy
 from PyCS_Core.PyCS_Errors import *
@@ -561,23 +562,41 @@ def make_gas_dm_image(snapshot,
     gc.collect()
     # Plotting
     ####################################################################################################################
+    #- Figure settings -#
+    l = 8 # the size of the actual image in inches
+    a1,a2,b1,b2 = (0.1,0.03,0.1,0.1) # these are the subplot margins
+    w,h = l/((0.74)*(1-(a1+a2))),l/(1-(b1+b2))
+    axis_ratio = h/w
     # - Making the figure -#
-    fig = plt.figure(figsize=tuple(CONFIG["Visualization"]["default_figure_size"]))
+    fig = plt.figure(figsize=(8,8*axis_ratio))
     axes = fig.add_subplot(111)
 
     axes.imshow(final_image, extent=extent)
 
     # - TITLES -#
-    plt.title(r"$t = \mathrm{%s\;%s}$" % (
+    plt.title("Comparative Distribution of Dark Matter and Baryonic Matter\n"+r"$t = \mathrm{%s\;%s}$" % (
         np.round(snapshot.properties["time"].in_units(time_units), decimals=2),
         time_units.latex()), fontsize=10)
 
-    plt.suptitle("Comparative Distribution of Dark Matter and Baryonic Matter", y=0.93)
 
     # - AXES LABELS -#
     axes.set_ylabel(r"$y\;\;\left[\mathrm{%s}\right]$" % (pyn.units.Unit(length_units).latex()))
     axes.set_xlabel(r"$x\;\;\left[\mathrm{%s}\right]$" % (pyn.units.Unit(length_units).latex()))
     axes.set_facecolor("black")
+
+    #- Adding colorbars -#
+
+    ##- Fetching the necessary colormaps -##
+    cmap_gas,cmap_dm = tuple([get_color_binary_colormap(col) for col in colors]) # grabs the correct colormaps
+
+    # creating the mapables #
+    bar_gas,bar_dm = plt.cm.ScalarMappable(norm=norm_gas,cmap=cmap_gas),plt.cm.ScalarMappable(norm=norm_dm,cmap=cmap_dm)
+    plt.colorbar(bar_gas,label=r"Gas Density / $%s$"%kwargs["units"].latex(),fraction=0.1,pad=0.05)
+    plt.colorbar(bar_dm,label=r"Dark Matter Density / $%s$"%kwargs["units"].latex(),fraction=0.1,pad=0.01)
+
+    #- adjusting subplots -#
+    plt.subplots_adjust(left=a1,right=1-a2,bottom=b1,top=1-b2)
+    #- saving -#
     if save:
         plt.savefig(end_file)
 
