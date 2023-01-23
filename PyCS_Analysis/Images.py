@@ -16,7 +16,7 @@ from PyCS_Core.Configuration import read_config, _configuration_path
 import pynbody as pyn
 from PyCS_Analysis.plot_utils import get_color_binary_colormap
 from PyCS_Core.Logging import set_log, log_print, make_error
-from PyCS_Analysis.Analysis_Utils import get_families, align_snapshot, make_pseudo_entropy
+from PyCS_Analysis.Analysis_Utils import get_families, align_snapshot, make_pseudo_entropy, make_mach_number
 from PyCS_Core.PyCS_Errors import *
 import matplotlib.pyplot as plt
 from PyCS_System.SimulationMangement import SimulationLog
@@ -429,6 +429,8 @@ def make_plot(snapshot,
     ##- deriving arrays -##
     if qty == "entropy":
         make_pseudo_entropy(snapshot)
+    elif qty == "mach":
+        make_mach_number(snapshot)
 
     # - building the array -#
     image_array = generate_image_array(snapshot, qty, families=families, **kwargs)

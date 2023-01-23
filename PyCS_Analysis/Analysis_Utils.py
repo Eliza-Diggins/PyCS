@@ -230,6 +230,34 @@ def make_pseudo_entropy(snapshot):
     snapshot.g["entropy"] = entropy
     snapshot.g["entropy"].units = pyn.units.Unit("keV cm^2")
 
+def make_mach_number(snapshot):
+    """
+    Generates the Mach number of the gas in the snapshot. This assumes a gamma = 5/3.
+
+    We use the formula M = sqrt([u^2 * rho]/[gamma * p])
+
+    Parameters
+    ----------
+    snapshot: The snapshot object to construct the array for.
+
+    Returns: None
+    -------
+
+    """
+    # intro debugging
+    ####################################################################################################################
+    fdbg_string = "%smake_mach_number: " % _dbg_string
+    log_print("Attempting to generate mach number array for %s." % snapshot, fdbg_string, "debug")
+
+    # Generating the underlying velocity
+    ####################################################################################################################
+    #- Comutations -#
+    snapshot.g["v2"] = np.sum(snapshot.g["vel"]**2,axis=1) # generates the square velocity.
+
+    # Computing the MACH number
+    ####################################################################################################################
+    snapshot.g["mach"] = np.sqrt((snapshot.g["rho"]*snapshot.g["v2"])/((5/3)*snapshot.g["p"]))
+
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Functions -------------------------------------------------------#
