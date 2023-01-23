@@ -106,6 +106,11 @@ __quantities = {
         "unit": "keV cm^2",
         "fancy": "Entropy",
         "families": ["gas"]
+    },
+    "mach": {
+        "unit": "",
+        "fancy": "Mach Number",
+        "families":["gas"]
     }
 }
 
