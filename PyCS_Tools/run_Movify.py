@@ -36,7 +36,7 @@ if not CONFIG["system"]["logging"]["warnings"]:
 
 #- Fixed Variables -#
 ffmpeg_command = """
-ffmpeg -framerate %s -pattern_type glob -i '%s' -c:v libx264 -pix_fmt yuv420p '%s'
+ffmpeg -framerate %s -pattern_type glob -i '%s' -c:v libx264 -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p '%s'
 """
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Main ------------------------------------------------------------#
