@@ -209,8 +209,9 @@ def merge_alpha_images(alpha_arrays: list, colors: list):
     image = np.sum(base_arrays, axis=0)
 
     # - renormalizing -#
+    norm_val = np.amax(image)
     for i in range(3):
-        image[:, :, i] = (image[:, :, i] / np.amax(image[:, :, i])) * 255
+        image[:, :, i] = (image[:, :, i] / norm_val) * 255
 
     return image.astype("uint8")
 
@@ -533,10 +534,12 @@ def make_gas_dm_image(snapshot,
     # Generating the plots
     ####################################################################################################################
     # building the images #
+    print(kwargs)
     dark_matter_array = generate_image_array(snapshot, "rho", families=["dm"], **kwargs)
     baryonic_array = generate_image_array(snapshot, "rho", families=["gas"], **kwargs)
 
     # - creating norms -#
+    print(vmin_dm,vmax_dm,vmin_gas,vmax_gas)
     if not vmax_dm:
         vmax_dm = np.amax(dark_matter_array)  # grabbing vmins and vmaxs.
     else:
@@ -552,6 +555,8 @@ def make_gas_dm_image(snapshot,
         vmin_gas,vmin_dm = vmin_gas.in_units(kwargs["units"]),vmin_dm.in_units(kwargs["units"])
     except Exception:
         vmin_gas,vmin_dm = vmin_gas,vmin_dm  # we just set trivially.
+
+    print(vmin_dm, vmax_dm, vmin_gas, vmax_gas)
     ##- Generating the norms -##
     norm_dm, norm_gas = mpl.colors.LogNorm(vmin=vmin_dm, vmax=vmax_dm, clip=True), mpl.colors.LogNorm(vmin=vmin_gas,
                                                                                                    vmax=vmax_gas,
