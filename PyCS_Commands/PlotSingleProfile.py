@@ -58,7 +58,7 @@ if __name__ == '__main__':
     #- profile configuration kwargs -#
     parser.add_argument("-ndim","--dimensions",help="The number of dimensions to use.",default=None,type=int)
     parser.add_argument("-type","--type",help="What type to use (equaln,lin,log)",default=None)
-    parser.add_argument("-nb","--nbins",help="The number of bins to use",default=None)
+    parser.add_argument("-nb","--nbins",help="The number of bins to use",default=None,type=int)
     parser.add_argument("-rmin","--rmin",help="The minimum radius to look at.",default=None)
     parser.add_argument("-rmax","--rmax",help="The maximum radius to look at.",default=None)
     parser.add_argument("-f", "--family", help="The family to include.", default=None)
