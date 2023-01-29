@@ -62,6 +62,7 @@ if __name__ == '__main__':
     parser.add_argument("-rmin","--rmin",help="The minimum radius to look at.",default=None)
     parser.add_argument("-rmax","--rmax",help="The maximum radius to look at.",default=None)
     parser.add_argument("-f", "--family", help="The family to include.", default=None)
+    parser.add_argument("-L","--lambdafunc",help="The lambda function to include in the plot.",default=None)
     #- units -#
     parser.add_argument("-ux","--units_x",help="The x-units",default=None)
     parser.add_argument("-uy", "--units_y", help="The y-units", default=None)
@@ -69,11 +70,16 @@ if __name__ == '__main__':
     #- plot kwargs -#
     parser.add_argument("-t", "--title", help="The title to add to the plot.",default=None)
     parser.add_argument("-lab", "--label", help="The title to add to the plot.",default=None)
+    parser.add_argument("-ylim","--y_limits",nargs="+",help="The y limits to impose",default=None)
     parser.add_argument("-lx", "--logx", help="Use a logarithmic scaling on the x axis",action="store_true")
     parser.add_argument("-ly", "--logy", help="Use a logarithmic scaling on the y axis",action="store_true")
     parser.add_argument("-ls","--linestyle",help="The linestyle to use",default="-",type=str)
     parser.add_argument("-lw","--linewidth",help="The linewidth to use",default=3)
     parser.add_argument("-c", "--color", help="The color to use", default="black")
+    parser.add_argument("-Ls","--L_linestyle",help="The linestyle to use (Lambda)",default=None)
+    parser.add_argument("-Lw","--L_linewidth",help="The linewidth to use (Lambda)",default=None)
+    parser.add_argument("-Lc", "--L_color", help="The color to use (Lambda)", default=None)
+    parser.add_argument("-LL","--L_label",help="The label for the Lambda function",default=None)
     parser.add_argument("-o", "--output_type", type=str, default="FILE", help="The type of output to use for logging.")
     parser.add_argument("-l", "--logging_level", type=int, default=10, help="The level of logging to use.")
     args = parser.parse_args()
@@ -132,6 +138,32 @@ if __name__ == '__main__':
     simSnap = pyn.load(os.path.join(simulation_directory, "output_%s" % args.ns))
     align_snapshot(simSnap)
 
+    #- building Lambda kwargs -#
+    if not args.lambdafunc:
+        # There is no lambda function, so we don't need to do anything
+        lambda_kwargs = None
+    else:
+        lambda_kwargs = { # We set the lambda function kwargs for display in here.
+            "lw":(args.L_linewidth if args.L_linewidth else 3),
+            "ls":(args.L_linestyle if args.L_linestyle else ":"),
+            "color":(args.L_color if args.L_color else args.color)
+        }
+
+    #- managing y limits -#
+
+    if args.y_limits != None:
+        # We have y limits, we need to make some conversions depending on what it is
+
+        ylims = [] # holds our output units
+        for id,val in enumerate(args.y_limits): # we check each item in the list for convertability
+            try:
+                ylims.append(float(val))
+            except ValueError:
+                # The item that we were using was not converting to float, it must actually have a unit.
+                ylims.append(val)
+    else:
+        ylims = None
+
     removable_kwargs ={ # Removable kwargs are those kwargs which need to be left out if = None
         "ndim":args.dimensions,
         "nbins":args.nbins,
@@ -143,7 +175,11 @@ if __name__ == '__main__':
         "units_y":args.units_y,
         "time_units":args.time_units,
         "title":args.title,
-        "label":args.label
+        "label":args.label,
+        "Lambda":args.lambdafunc,
+        "lambda_kwargs":lambda_kwargs,
+        "Lambda_label":args.L_label,
+        "ylims":ylims,
     }
     kwargs = {key: value for key, value in removable_kwargs.items() if value != None}
     # PLOTTING

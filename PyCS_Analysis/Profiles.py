@@ -19,10 +19,12 @@ import warnings
 from multiprocessing import current_process
 from PyCS_Analysis.Analysis_Utils import align_snapshot
 from PyCS_System.SimulationMangement import SimulationLog
+from PyCS_Analysis.builtin_functions import hydrostatic_mass
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 from utils import split
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -71,65 +73,65 @@ __pynbody_profile_defaults = {
 __quantities = {
     "vx": {
         "unit": {
-            3:CONFIG["units"]["default_velocity_unit"],
-            2:CONFIG["units"]["default_velocity_unit"]
+            3: CONFIG["units"]["default_velocity_unit"],
+            2: CONFIG["units"]["default_velocity_unit"]
         },
         "fancy": "x Velocity",
         "families": ["gas", "stars", "dm"]
     },
     "vy": {
         "unit": {
-            3:CONFIG["units"]["default_velocity_unit"],
-            2:CONFIG["units"]["default_velocity_unit"]
+            3: CONFIG["units"]["default_velocity_unit"],
+            2: CONFIG["units"]["default_velocity_unit"]
         },
         "fancy": "y Velocity",
         "families": ["gas", "stars", "dm"]
     },
     "vz": {
-        "unit":  {
-            3:CONFIG["units"]["default_velocity_unit"],
-            2:CONFIG["units"]["default_velocity_unit"]
+        "unit": {
+            3: CONFIG["units"]["default_velocity_unit"],
+            2: CONFIG["units"]["default_velocity_unit"]
         },
         "fancy": "z Velocity",
         "families": ["gas", "stars", "dm"]
     },
     "temp": {
-        "unit":  {
-            3:CONFIG["units"]["default_temperature_unit"],
-            2:CONFIG["units"]["default_temperature_unit"]
+        "unit": {
+            3: CONFIG["units"]["default_temperature_unit"],
+            2: CONFIG["units"]["default_temperature_unit"]
         },
         "fancy": "Temperature",
         "families": ["gas"]
     },
     "density": {
-        "unit": {3:CONFIG["units"]["default_density_unit"],
-                 2:CONFIG["units"]["default_surface_density_unit"]},
+        "unit": {3: CONFIG["units"]["default_density_unit"],
+                 2: CONFIG["units"]["default_surface_density_unit"]},
         "fancy": "Density",
         "families": ["gas", "stars", "dm"]
     },
     "mass_enc": {
         "unit": {
-            3:CONFIG["units"]["default_mass_unit"],
-            2:CONFIG["units"]["default_mass_unit"]
+            3: CONFIG["units"]["default_mass_unit"],
+            2: CONFIG["units"]["default_mass_unit"]
         },
         "fancy": "Enclosed Mass",
         "families": ["gas", "stars", "dm"]
     },
     "dyntime": {
-        "unit": {3:"Myr",
-                 2:"Myr"},
+        "unit": {3: "Myr",
+                 2: "Myr"},
         "fancy": "Dynamical Time",
         "families": ["gas", "stars", "dm"]
     },
     "g_spherical": {
-        "unit": {3:"m s^-2",
-                 2:"m s^-2"},
+        "unit": {3: "m s^-2",
+                 2: "m s^-2"},
         "fancy": "Spherical Potential",
         "families": ["gas", "stars", "dm"]
     },
     "p": {
-        "unit":{3: "N m^-2",
-                2: "N m^-2"},
+        "unit": {3: "N m^-2",
+                 2: "N m^-2"},
         "fancy": "Pressure",
         "families": ["gas"]
     }
@@ -143,7 +145,7 @@ boltzmann = 1.380649e-23 * pyn.units.Unit("J K^-1")  # Defining the Boltzmann co
 # ----------------------------------------------------- Minor Functions -------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 
-def set_units(qty,ndim):
+def set_units(qty, ndim):
     """
     Sets the correct default unit for the given qty.
     Parameters
@@ -227,9 +229,8 @@ def mp_make_profile(arg):
     args, kwargs = arg  # splitting the args and kwargs out of the tuple
     for snapshot_name in args[0]:
         # We cycle through each of the snapshot locations
-        path = os.path.join(args[2], snapshot_name) # proper location of the snapshot.
-        snap = pyn.load(path) # load the snap shot
-
+        path = os.path.join(args[2], snapshot_name)  # proper location of the snapshot.
+        snap = pyn.load(path)  # load the snap shot
 
         # Snapshot management
         ################################################################################################################
@@ -241,8 +242,11 @@ def mp_make_profile(arg):
 
         # Running main command
         ################################################################################################################
-        make_profile_plot(snap, args[3], end_file=os.path.join(args[1], "Profile_%s.png" % (snapshot_name.replace("output_", ""))),
-                  **kwargs)
+        make_profile_plot(snap, args[3],
+                          end_file=os.path.join(args[1], "Profile_%s.png" % (snapshot_name.replace("output_", ""))),
+                          **kwargs)
+
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --------------------------------------------------- Sub-Functions -----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -336,12 +340,13 @@ def _raw_make_profile_plot(snapshot,
     # - grabbing the y array -#
     try:
         # We need to fix this array to manage possible unit errors #
-        y = fix_array_u(profile[qty], qty, (__quantities[qty]["unit"][_prof_kwargs["ndim"]] if "units_y" not in kwargs else kwargs["units_y"]))
+        y = fix_array_u(profile[qty], qty, (
+            __quantities[qty]["unit"][_prof_kwargs["ndim"]] if "units_y" not in kwargs else kwargs["units_y"]))
     except KeyError:
         make_error(ValueError, fdbg_string, "The quantity %s is not a valid quantity for this profile..." % qty)
         return None
 
-    #- final unit coercion -#
+    # - final unit coercion -#
 
     if "units_y" in kwargs:
         y = y.in_units(kwargs["units_y"])
@@ -374,6 +379,16 @@ def _raw_make_profile_plot(snapshot,
 
     if "label" not in kwargs:
         kwargs["label"] = __quantities[qty]["fancy"]
+
+    #- Checking for lambda kwargs in the kwargs and moving them -#
+    if "lambda_kwargs" in kwargs:
+        # We have lambda kwargs so we need to extract and remove.
+        lambda_kwargs = kwargs["lambda_kwargs"]
+        del kwargs["lambda_kwargs"]
+    else:
+        # ! THERE IS NOT LAMBDA FUNCTION ! We simply pass over and move on
+        lambda_kwargs = {} # This will never be used, empty to keep IDE happy.
+
     # Plotting
     ####################################################################################################################
     # - creating the figure -#
@@ -396,13 +411,21 @@ def _raw_make_profile_plot(snapshot,
 
     ##-managing the lambda function -##
     if Lambda != None:  # there is a lambda function
-        l_kwargs = {key: value for key, value in kwargs.items() if key in ["color", "lw"]}
-        l_kwargs["ls"] = ":"
-        plt_func(x, Lambda(x), label=(Lambda_label if Lambda_label else ""), **l_kwargs)
+        if isinstance(Lambda, str):
+            # This lambda function is actually a string, so we check for built-in options
+            if Lambda in ["HSE", "hse"]:
+                Lambda = hydrostatic_mass(snapshot, independent_unit=x.units, dependent_unit=y.units)
+            else:
+                make_error(ValueError, fdbg_string, "Lambda present %s is not valid." % Lambda)
+                return None
+
+        # Dealing with the key word args
+        plt_func(x, Lambda(x), label=(Lambda_label if Lambda_label else ""), **lambda_kwargs)
 
     # Returning
     ####################################################################################################################
     return [axes, x, y]
+
 
 def make_profile_plot(snapshot,
                       qty,
@@ -443,21 +466,38 @@ def make_profile_plot(snapshot,
     fdbg_string = "%smake_profile_plot: " % _dbg_string
     log_print("Generating %s profile plot for snapshot %s." % (qty, snapshot), fdbg_string, "debug")
 
-    #- managing time units -#
+    # - managing time units -#
     if isinstance(time_units, str):
         time_units = pyn.units.Unit(time_units)
 
-    #- managing ndims -#
+    # - managing ndims -#
     if not "ndim" in kwargs:
         ndim = __pynbody_profile_defaults["ndim"]
     else:
         ndim = kwargs["ndim"]
-    #- managing y units -#
+
+    # - managing y units -#
     if not "units_y" in kwargs:
-        units_y = pyn.units.Unit(str(__quantities[qty]["unit"][ndim])) #<-This is potentially redundant
+        units_y = pyn.units.Unit(str(__quantities[qty]["unit"][ndim]))  # <-This is potentially redundant
     else:
-        units_y = pyn.units.Unit(str(kwargs["units_y"])) #<-This is potentially redundant
-    #- Managing title -#
+        units_y = pyn.units.Unit(str(kwargs["units_y"]))  # <-This is potentially redundant
+
+    #- managing y limits -#
+    if "ylims" in kwargs:
+        # checking the length
+        if len(kwargs["ylims"]) != 2:
+            make_error(IndexError,fdbg_string,"The kwarg 'ylims' has value %s, which is of length %s but must be of length 2."%(kwargs["ylims"],len(kwargs["ylims"])))
+
+        # We have y limits to deal with
+        for id,lim in enumerate(kwargs["ylims"]):
+                kwargs["ylims"][id] = (lim if isinstance(lim,(float,int)) else (lim.in_units(units_y) if isinstance(lim,pyn.units.CompositeUnit) else (pyn.units.Unit(lim).in_units(units_y) if lim != "None" else "None")))
+
+        ylims = kwargs["ylims"].copy()
+        del kwargs["ylims"]
+    else:
+        ylims = None # There are no y limits to manage or deal with
+
+    # - Managing title -#
     if "title" in kwargs:
         title = kwargs["title"]
         del kwargs["title"]
@@ -474,12 +514,23 @@ def make_profile_plot(snapshot,
 
     # - pulling important info out of data -#
     x, y = tuple(data[1:])
+
+    # - managing limits -#
+    if ylims:
+        # We have y limits
+        for id,lim in enumerate(ylims):
+            if lim == "None":
+                ylims[id] = (np.amax(y) if id == 1 else np.amin(y))
+
+        axes.set_ylim(ylims)
+
+
     # - managing text -#
     axes.set_xlabel(r"Radius [$%s$]" % (x.units.latex()))  # setting the x axis
     axes.set_ylabel(r"%s [$%s$]" % (__quantities[qty]["fancy"], y.units.latex()))
     axes.set_title(title)
 
-    #- setting general title -#
+    # - setting general title -#
     plt.title(r"$t = \mathrm{%s\;%s},\;\;\mathrm{Quantity:\;%s}\;[\mathrm{%s}]$" % (
         np.round(snapshot.properties["time"].in_units(time_units), decimals=2),
         time_units.latex(),
@@ -620,10 +671,11 @@ def make_profiles_plot(snapshot,
         gc.collect()
     else:
         plt.show()
+
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Functions -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-
 
 
 def generate_profile_sequence(simulation_directory, qty, multiprocess=True, nproc=3, **kwargs):
@@ -642,8 +694,9 @@ def generate_profile_sequence(simulation_directory, qty, multiprocess=True, npro
     # DEBUGGING
     ########################################################################################################################
     fdbg_string = _dbg_string + "generate_profile_sequence: "
-    log_print("Generating %s profile sequence for %s with the following kwargs: %s" % (qty, simulation_directory, kwargs),
-              fdbg_string, "debug")
+    log_print(
+        "Generating %s profile sequence for %s with the following kwargs: %s" % (qty, simulation_directory, kwargs),
+        fdbg_string, "debug")
 
     # SETUP
     ########################################################################################################################
@@ -663,11 +716,11 @@ def generate_profile_sequence(simulation_directory, qty, multiprocess=True, npro
         kwargs["ndim"] = 3
 
     output_directory = os.path.join(CONFIG["system"]["directories"]["figures_directory"], simulation_name,
-                                    "%s-(ndim=%s)_Profiles" % (qty, kwargs["ndim"]), datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))
+                                    "%s-(ndim=%s)_Profiles" % (qty, kwargs["ndim"]),
+                                    datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))
 
     if not os.path.exists(output_directory):
         pt.Path.mkdir(pt.Path(output_directory), parents=True)
-
 
     ##- Debugging -##
     log_print("Saving %s figures to %s." % (qty, output_directory), fdbg_string, "debug")
@@ -699,11 +752,16 @@ def generate_profile_sequence(simulation_directory, qty, multiprocess=True, npro
             align_snapshot(snapshot)
 
             # - Plotting -#
-            make_profile_plot(snapshot, qty, end_file=os.path.join(output_directory, "Profile_%s.png" % snap_number), save=True,
-                      **kwargs)
+            make_profile_plot(snapshot, qty, end_file=os.path.join(output_directory, "Profile_%s.png" % snap_number),
+                              save=True,
+                              **kwargs)
+
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -----------------------------------------------------   MAIN   --------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT", level=10)
-    generate_profile_sequence("/home/ediggins/PyCS/RAMSES_simulations/Cluster1","temp",family="gas",logx=True,logy=True,multiprocess=False)
+    data = pyn.load("/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500")
+    align_snapshot(data)
+    make_profile_plot(data, "mass_enc", save=False, Lambda="hse", logy=True, logx=True, color="red")
