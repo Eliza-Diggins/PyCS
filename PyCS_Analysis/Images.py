@@ -16,7 +16,7 @@ from PyCS_Core.Configuration import read_config, _configuration_path
 import pynbody as pyn
 from PyCS_Analysis.plot_utils import get_color_binary_colormap
 from PyCS_Core.Logging import set_log, log_print, make_error
-from PyCS_Analysis.Analysis_Utils import get_families, align_snapshot, make_pseudo_entropy, make_mach_number
+from PyCS_Analysis.Analysis_Utils import get_families, align_snapshot, make_pseudo_entropy, make_mach_number, generate_xray_emissivity
 from PyCS_Core.PyCS_Errors import *
 import matplotlib.pyplot as plt
 from PyCS_System.SimulationMangement import SimulationLog
@@ -96,12 +96,6 @@ __quantities = {
         "fancy": "Density",
         "families": ["gas"]
     },
-    "2rho": {
-        "unit": "Msol^2 kpc^-6",
-        "fancy": "Density${}^2$",
-        "families": ["gas"]
-    }
-    ,
     "entropy": {
         "unit": "keV cm^2",
         "fancy": "Entropy",
@@ -110,6 +104,11 @@ __quantities = {
     "mach": {
         "unit": "",
         "fancy": "Mach Number",
+        "families":["gas"]
+    },
+    "xray": {
+        "unit": "erg cm^-3 s^-1",
+        "fancy": r"\epsilon^{ff}",
         "families":["gas"]
     }
 }
@@ -437,6 +436,8 @@ def make_plot(snapshot,
         make_pseudo_entropy(snapshot)
     elif qty == "mach":
         make_mach_number(snapshot)
+    elif qty == "xray":
+        generate_xray_emissivity(snapshot)
 
     # - building the array -#
     image_array = generate_image_array(snapshot, qty, families=families, **kwargs)

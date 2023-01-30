@@ -30,8 +30,12 @@ if not CONFIG["system"]["logging"]["warnings"]:
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # -------------------------------------------------- Fixed Variables ----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-boltzmann = 1.380649e-23 * pyn.units.Unit("J K^-1")  # Defining the Boltzmann constant
-
+# - Fixed constants -#
+mass_fraction = 0.6  # The standard mass fraction. This value is from Schneider (Extragalactic astronomy)
+boltzmann = 1.381e-23 * pyn.units.Unit("J K^-1")
+G = 6.675e-11 * pyn.units.Unit("N m^2 kg^-2")
+m_p = 1.672621911e-27 * pyn.units.Unit("kg")
+rho_critical = 8.5e-27 * pyn.units.Unit("kg m^-3")  # universe critical density.
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --------------------------------------------- Multi-Processing Functions ----------------------------------------------#
@@ -258,7 +262,34 @@ def make_mach_number(snapshot):
     ####################################################################################################################
     snapshot.g["mach"] = np.sqrt((snapshot.g["rho"]*snapshot.g["v2"])/((5/3)*snapshot.g["p"]))
 
+def generate_xray_emissivity(snapshot) -> None:
+    """
+    Generates the x-ray emissivity associated with the given snapshot.
 
+    *Note*: This is a relatively crude approach!
+
+    - We use the full spectrum integral (6.32 in Schneider) which gives an estimate based on solar abundance.
+    - e_ff = 3.0e-27 (egs cm^-3 s^-1) * sqrt(T/1K)*(n_e/1 cm^-3)^2
+
+    Parameters
+    ----------
+    snapshot: The snapshot for which to produce the field.
+
+    Returns: None
+    -------
+
+    """
+    # Setup and Logging
+    # ------------------------------------------------------------------------------------------------------------------#
+    # - Debugging -#
+    fdbg_string = "%sgenerate_xray_emissivity: " % _dbg_string
+    log_print("Generating the x-ray emissivity array for snapshot %s." % (snapshot), fdbg_string, "debug")
+
+    # - Producing the necessary computation -#
+    snapshot.g["xray"] = pyn.array.SimArray(
+        (3.0e-27) * np.sqrt(snapshot.g["temp"].in_units("K") / pyn.units.Unit("1 K")) * (((snapshot.g["rho"].in_units(
+            "kg cm^-3") / pyn.units.Unit("kg cm^-3")) / (m_p.in_units("kg") * mass_fraction)) ** 2),
+        pyn.units.Unit("erg cm^-3 s^-1"))
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Functions -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#

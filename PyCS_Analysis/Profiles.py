@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import gc
 import warnings
 from multiprocessing import current_process
-from PyCS_Analysis.Analysis_Utils import align_snapshot
+from PyCS_Analysis.Analysis_Utils import align_snapshot,make_pseudo_entropy,make_mach_number,generate_xray_emissivity
 from PyCS_System.SimulationMangement import SimulationLog
 from PyCS_Analysis.builtin_functions import hydrostatic_mass
 from datetime import datetime
@@ -133,6 +133,24 @@ __quantities = {
         "unit": {3: "N m^-2",
                  2: "N m^-2"},
         "fancy": "Pressure",
+        "families": ["gas"]
+    },
+    "entropy": {
+        "unit": {3: "keV cm^2",
+                 2: "keV cm^2"},
+        "fancy": "Entropy",
+        "families": ["gas"]
+    },
+    "mach": {
+        "unit": {3: "",
+                 2: ""},
+        "fancy": "Mach Number",
+        "families": ["gas"]
+    },
+    "xray": {
+        "unit": {3:"erg cm^-3 s^-1",
+                 2:"erg cm^-2 s^-1"},
+        "fancy": r"\epsilon^{ff}",
         "families": ["gas"]
     }
 }
@@ -306,6 +324,15 @@ def _raw_make_profile_plot(snapshot,
             else:  # These were set to nonetype anyways.
                 pass
 
+    # Deriving arrays
+    #------------------------------------------------------------------------------------------------------------------#
+    ##- deriving arrays -##
+    if qty == "entropy":
+        make_pseudo_entropy(snapshot)
+    elif qty == "mach":
+        make_mach_number(snapshot)
+    elif qty == "xray":
+        generate_xray_emissivity(snapshot)
     # Creating the profile in question
     ####################################################################################################################
     if not profile:
@@ -378,7 +405,7 @@ def _raw_make_profile_plot(snapshot,
         logy = False
 
     if "label" not in kwargs:
-        kwargs["label"] = __quantities[qty]["fancy"]
+        kwargs["label"] = r"$\mathrm{%s}$"%__quantities[qty]["fancy"]
 
     #- Checking for lambda kwargs in the kwargs and moving them -#
     if "lambda_kwargs" in kwargs:
@@ -527,7 +554,7 @@ def make_profile_plot(snapshot,
 
     # - managing text -#
     axes.set_xlabel(r"Radius [$%s$]" % (x.units.latex()))  # setting the x axis
-    axes.set_ylabel(r"%s [$%s$]" % (__quantities[qty]["fancy"], y.units.latex()))
+    axes.set_ylabel(r"$\mathrm{%s} \left[%s\right]$" % (__quantities[qty]["fancy"], y.units.latex()))
     axes.set_title(title)
 
     # - setting general title -#

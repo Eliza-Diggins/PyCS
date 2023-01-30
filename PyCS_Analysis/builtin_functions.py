@@ -266,58 +266,9 @@ def dehnen_mass_profile(mass,
 # -------------------------------------------------- Mathematics --------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # - These are all functions related to useful analysis.
-def generate_xray_emissivity(snapshot, emin, emax):
-    """
-    Generates the x-ray emissivity for the cluster based on the given snapshot and the specified emin, emax.
 
-    We use the formula
 
-    e_ff = n_e^2 * G(E,T) * (kT)^(-1/2) exp(-E/kT)
 
-    Which, after subsequent calculations simplifies to
-
-    rho_g^2 * (kT)^(1/2) * (0.9/(1.252 m_p)^2) * integral from E_min/kT to E_max/kT x^-0.3 * exp(-x).
-
-    Parameters
-    ----------
-    snapshot: The snapshot on which to compute the value.
-    emin: The minimum energy for the computation.
-    emax: The maximum energy for the computation.
-
-    Returns
-    -------
-
-    """
-    # Intro debugging
-    ####################################################################################################################
-    fdbg_string = "%sgenerate_xray_emissivity: "
-    log_print("Generating x-ray emissivity map for %s." % snapshot, fdbg_string, "debug")
-
-    # SETUP and TYPE COERCION
-    ####################################################################################################################
-    # - Forcing corrected energy units -#
-    if isinstance(emin, pyn.units.CompositeUnit):  # These are united.
-        emin = emin.in_units("keV")
-
-    if isinstance(emax, pyn.units.CompositeUnit):
-        emax = emax.in_units("keV")
-
-    for e_arg in [emax, emin]:
-        assert isinstance(e_arg, (
-        float, int)), "One or both of the energy arguments could not be coerced into a float (%s)." % e_arg
-
-    # Defining subscope integral
-    ####################################################################################################################
-    def __subscope_integral(T):
-        # REQUIRE T UNITLESS in K.
-        range_space = np.linspace(emin / (8.617e-8 * T), emax / (8.617e-8 * T), 100)
-        integrand = range_space ^ (-0.3) * np.exp(range_space)
-
-        return np.trapz(integrand, x=range_space)
-
-    # Generating the field
-    ####################################################################################################################
-    #TODO: IN PROGRESS, NOT FINISHED!
 def get_collision_parameters(masses,
                              impact_parameter,
                              initial_velocity,
@@ -419,20 +370,7 @@ def get_collision_parameters(masses,
 
 
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-
     set_log(_filename, output_type="STDOUT")
-    data = get_collision_parameters([1e15, 1e15], 2, -1000, 6,
-                                    events=[lambda t, y: y[0] - float(500 * pyn.units.Unit("kpc").in_units("km")),
-                                            lambda t, y: y[0] - float(1000 * pyn.units.Unit("kpc").in_units("km"))])
-    print(data.t_events, data.com_y_events, data.y_events)
-    plt.plot(data.com_y[0] * np.cos(data.y[2]), data.com_y[0] * np.sin(data.y[2]))
-    plt.plot(data.com_y[1] * np.cos(data.y[2]), data.com_y[1] * np.sin(data.y[2]))
-    for y_event, com_event, c in zip(data.y_events, data.com_y_events, ["red", "green"]):
-        plt.scatter(com_event[:][0] * np.cos(y_event[0, 2]), com_event[:][0] * np.sin(y_event[0, 2]), color=c)
-        plt.scatter(com_event[:][1] * np.cos(y_event[1, 2]), com_event[:][1] * np.sin(y_event[1, 2]), color=c)
-    plt.show()
-    plt.plot(data.t, data.y[1])
-    plt.plot(data.t, data.y[2])
-
-    plt.show()
+    snapshot = pyn.load("/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500")
+    generate_xray_emissivity(snapshot)
+    print(snapshot.g["xray"].units)
