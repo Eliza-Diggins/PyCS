@@ -37,6 +37,7 @@ G = 6.675e-11 * pyn.units.Unit("N m^2 kg^-2")
 m_p = 1.672621911e-27 * pyn.units.Unit("kg")
 rho_critical = 8.5e-27 * pyn.units.Unit("kg m^-3")  # universe critical density.
 
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --------------------------------------------- Multi-Processing Functions ----------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -44,7 +45,7 @@ rho_critical = 8.5e-27 * pyn.units.Unit("kg m^-3")  # universe critical density.
 # --------------------------------------------------- Sub-Functions -----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # Simple sub-functions
-#----------------------------------------------------------------------------------------------------------------------#
+# ----------------------------------------------------------------------------------------------------------------------#
 def get_random_colors(n: int, name: str = "viridis") -> np.array:
     """
     Returns an array of HSV colors evenly distributed over n values.
@@ -120,7 +121,7 @@ def align_snapshot(snapshot) -> None:
         raise IsNotRAMSESError("The simulation is not a RAMSES snapshot.")
 
     ##- Increasing the boxsize -##
-    snapshot.properties["boxsize"] = 2*snapshot.properties["boxsize"]
+    snapshot.properties["boxsize"] = 2 * snapshot.properties["boxsize"]
 
     ##- Aligning -##
 
@@ -131,6 +132,7 @@ def align_snapshot(snapshot) -> None:
     ##- Managing Units -##
     snapshot.physical_units()  # convert from raw computational units to CSG units.
     log_print("Aligned %s." % snapshot, fdbg_string, "debug")
+
 
 def smooth_out(snapshot, family):
     """
@@ -234,6 +236,7 @@ def make_pseudo_entropy(snapshot):
     snapshot.g["entropy"] = entropy
     snapshot.g["entropy"].units = pyn.units.Unit("keV cm^2")
 
+
 def make_mach_number(snapshot):
     """
     Generates the Mach number of the gas in the snapshot. This assumes a gamma = 5/3.
@@ -255,12 +258,13 @@ def make_mach_number(snapshot):
 
     # Generating the underlying velocity
     ####################################################################################################################
-    #- Comutations -#
-    snapshot.g["v2"] = np.sum(snapshot.g["vel"]**2,axis=1) # generates the square velocity.
+    # - Comutations -#
+    snapshot.g["v2"] = np.sum(snapshot.g["vel"] ** 2, axis=1)  # generates the square velocity.
 
     # Computing the MACH number
     ####################################################################################################################
-    snapshot.g["mach"] = np.sqrt((snapshot.g["rho"]*snapshot.g["v2"])/((5/3)*snapshot.g["p"]))
+    snapshot.g["mach"] = np.sqrt((snapshot.g["rho"] * snapshot.g["v2"]) / ((5 / 3) * snapshot.g["p"]))
+
 
 def generate_xray_emissivity(snapshot) -> None:
     """
@@ -290,6 +294,8 @@ def generate_xray_emissivity(snapshot) -> None:
         (3.0e-27) * np.sqrt(snapshot.g["temp"].in_units("K") / pyn.units.Unit("1 K")) * (((snapshot.g["rho"].in_units(
             "kg cm^-3") / pyn.units.Unit("kg cm^-3")) / (m_p.in_units("kg") * mass_fraction)) ** 2),
         pyn.units.Unit("erg cm^-3 s^-1"))
+
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Functions -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#

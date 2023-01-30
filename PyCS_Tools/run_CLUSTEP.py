@@ -17,7 +17,7 @@ from PyCS_System.SpecConfigs import read_clustep_config, write_slurm_script, wri
 import pathlib as pt
 from datetime import datetime
 from PyCS_System.text_utils import get_options
-from PyCS_System.SimulationMangement import add_ic_file
+from PyCS_System.SimulationMangement import ICLog
 import time
 import warnings
 
@@ -28,7 +28,7 @@ _location = "PyCS_Tools"
 _filename = pt.Path(__file__).name.replace(".py", "")
 _dbg_string = "%s:%s:" % (_location, _filename)
 CONFIG = read_config(_configuration_path)
-
+iclog = ICLog.load_default()
 # - managing warnings -#
 if not CONFIG["system"]["logging"]["warnings"]:
     warnings.filterwarnings('ignore')
@@ -119,9 +119,10 @@ if __name__ == '__main__':
             pass
 
     # - adding everything to the log -#
-    add_ic_file(os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"], out_name),
-                param_files=[param_file_path],
-                type="cluster-single")
+    iclog[out_name] = {"param_files":[param_file_path],
+                       "type":"cluster-single",
+                       "DateCreated":datetime.now(),
+                       "location":os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"], out_name)}
 
     ### RUNNING THE PROGRAM ###
     if args.no_batch:
