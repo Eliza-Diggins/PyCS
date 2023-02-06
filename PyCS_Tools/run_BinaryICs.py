@@ -18,6 +18,8 @@ import pathlib as pt
 import argparse
 import time
 import warnings
+import toml
+from datetime import datetime
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
@@ -147,9 +149,20 @@ if __name__ == '__main__':
         for tag,item in __binary_options_dict["Cluster %s"% id]["tags"].items():
             tag_strings[id] += (tag+ " " if item[0]=="True" else "")
 
+    #- Write the final additional parameter file which is shared. Carries the %INFO% marker on it. -#
+    joint_data_path = str(os.path.join(CONFIG["system"]["directories"]["parameter_directory"],
+                                       out_name.replace(".dat", ""),
+                                       "params_%INFO%.ini"))
+
+    __binary_options_dict["General"] = {key:[str(i) for i in value] for key,value in __binary_options_dict["General"].items()}
+    with open(joint_data_path,"w") as f:
+        toml.dump(__binary_options_dict,f)
+
     # - adding everything to the log -#
-    iclog[os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"], out_name)] = {"param_files":[param_file_path % i for i in ["1", "2"]],
-                "type":"cluster-binary"}
+    iclog[out_name] = {"param_files":[param_file_path % i for i in ["1", "2"]]+[joint_data_path],
+                "type":"cluster-binary",
+                       "location":os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"],out_name),
+                       "DateCreated":datetime.now()}
 
     # Running
     ####################################################################################################################

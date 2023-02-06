@@ -74,42 +74,69 @@ __quantities = {
     "vx": {
         "unit": CONFIG["units"]["default_velocity_unit"],
         "fancy": "x Velocity",
-        "families": ["gas", "stars", "dm"]
+        "families": ["gas", "stars", "dm"],
+        "default_settings":{
+            "cmap":plt.cm.seismic
+        }
     },
     "vy": {
         "unit": CONFIG["units"]["default_velocity_unit"],
         "fancy": "y Velocity",
-        "families": ["gas", "stars", "dm"]
+        "families": ["gas", "stars", "dm"],
+        "default_settings":{
+            "cmap":plt.cm.seismic
+        }
     },
     "vz": {
         "unit": CONFIG["units"]["default_velocity_unit"],
         "fancy": "z Velocity",
-        "families": ["gas", "stars", "dm"]
+        "families": ["gas", "stars", "dm"],
+        "default_settings":{
+            "cmap":plt.cm.seismic
+        }
     },
     "temp": {
         "unit": CONFIG["units"]["default_temperature_unit"],
         "fancy": "Temperature",
-        "families": ["gas"]
+        "families": ["gas"],
+        "default_settings":{
+            "cmap":plt.cm.cubehelix
+        }
     },
     "rho": {
         "unit": CONFIG["units"]["default_density_unit"],
         "fancy": "Density",
-        "families": ["gas"]
+        "families": ["gas"],
+        "default_settings":{
+            "cmap":plt.cm.inferno,
+            "log":True
+        }
     },
     "entropy": {
         "unit": "keV cm^2",
         "fancy": "Entropy",
-        "families": ["gas"]
+        "families": ["gas"],
+        "default_settings":{
+            "cmap":plt.cm.jet,
+            "log":True
+        }
     },
     "mach": {
         "unit": "",
         "fancy": "Mach Number",
-        "families":["gas"]
+        "families":["gas"],
+        "default_settings":{
+            "cmap":plt.cm.hot
+        }
     },
     "xray": {
         "unit": "erg cm^-3 s^-1",
         "fancy": r"\epsilon^{ff}",
-        "families":["gas"]
+        "families":["gas"],
+        "default_settings":{
+            "cmap":plt.cm.cividis,
+            "log":True
+        }
     }
 }
 
@@ -331,7 +358,10 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
         if not len(families):
             make_error(SnapshotError, fdbg_string, "Families %s were not found." % families)
     else:
-        families = snapshot.families()
+        try:
+            families = get_families(snapshot,__quantities[qty]["families"])
+        except KeyError:
+            families = snapshot.families()
 
     # - Getting defaults -#
 
@@ -790,5 +820,5 @@ if __name__ == '__main__':
 
     align_snapshot(data)
 
-    make_gas_dm_image(data, save=False, colors=["orangered", "lime"],vmin_dm=1e5,vmin_gas=1e4)
+    make_plot(data,"temp",width="5000 kpc",save=False)
     plt.show()

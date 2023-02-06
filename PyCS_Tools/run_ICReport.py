@@ -473,7 +473,7 @@ if __name__ == '__main__':
     params_files = log_data["param_files"]  # grab the parameter file locations.
 
     # - grabbing the data from the parameter files
-    parameter_data = [read_clustep_ini(file) for file in params_files]  # reading
+    parameter_data = [read_clustep_ini(file) for file in params_files if "%INFO%" not in file]  # reading
     print(done_string)
     # Managing profiles
     ####################################################################################################################
@@ -511,7 +511,7 @@ if __name__ == '__main__':
             )
             print(done_string)
     else:
-        # - This is not a binary, so we pass through as usual.
+        # - This is a binary, so we pass through as usual.
         save_location = os.path.join(report_dir, report_name, "%s_%s.png")
 
         for subsnap, id in zip(binary_snapshots, ["1", "2"]):

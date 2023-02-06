@@ -112,6 +112,10 @@ install_files = {"files": {
     "IC_Reports": {
         "files": None,
         "setting_name": "reports_directory"
+    },
+    "Datasets": {
+        "files":None,
+        "setting_name": "datasets_directory"
     }
 }
 }

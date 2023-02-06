@@ -351,8 +351,22 @@ def _raw_make_profile_plot(snapshot,
             profile = pyn.analysis.profile.Profile(snapshot[family], **_prof_kwargs)
             del kwargs["family"]
         else:
-            # - creating the profile -#
-            profile = pyn.analysis.profile.Profile(snapshot, **_prof_kwargs)
+            # Families was not specified, -> we need to grab allowable families.
+            #
+            # If the families array is ["gas","dm"], we can just pass through, otherwise we need to restrict.
+            #
+            if len(__quantities[qty]["families"]) < 2: # We are restricted!
+                try:
+                    family = [snap_fam for snap_fam in snapshot.families() if snap_fam.name == __quantities[qty]["families"][0]][0]  # get the family
+                except KeyError:
+                    # There was no family of this type.
+                    make_error(ValueError, fdbg_string, "Failed to recognize default family input %s" % (__quantities[qty]["families"][0]))
+                    return None
+                # Making the correct profile
+                profile = pyn.analysis.profile.Profile(snapshot[family], **_prof_kwargs)
+            else:
+                # We can use !ANY! profile without family restriction so we just pass over.
+                profile = pyn.analysis.profile.Profile(snapshot, **_prof_kwargs)
 
     # Attempting to generate plotted items
     ####################################################################################################################
@@ -791,4 +805,4 @@ if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT", level=10)
     data = pyn.load("/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500")
     align_snapshot(data)
-    make_profile_plot(data, "mass_enc", save=False, Lambda="hse", logy=True, logx=True, color="red")
+    make_profile_plot(data, "temp", save=False, color="red")
