@@ -37,6 +37,17 @@ if not CONFIG["system"]["logging"]["warnings"]:
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 _pycs_head = str(pt.Path(os.path.realpath(__file__)).parents[1])
 commands_dict = {
+    "Generate Halo Centers":{
+        "path": os.path.join(_pycs_head,"PyCS_Commands","FindHaloCenters.py"),
+        "desc": "Find the centers of the DM halos in each snapshot.",
+        "options": {
+            "-sim": ("", "", "The simulation name to use. Only one of -sim / -simdir is needed."),
+            "-simdir": ("", "", "The simulation directory."),
+            "-o": ("", "", "The logging output."),
+            "-l": ("", "", "The debugging level."),
+            "-np": ("$SLURM_NTASKS", "$SLURM_NTASKS", "The number of processors to use.")
+        },
+    },
     "Generate Image Sequence": {
         "path": os.path.join(_pycs_head, "PyCS_Commands", "GenerateImageSequence.py"),
         "desc": "Plot a sequence of images with a selection of kwargs for the selected simulation.",
@@ -226,6 +237,17 @@ commands_dict = {
     }
 }
 commands_dict_data = {
+    "Generate Halo Centers": {
+        "path": os.path.join(_pycs_head, "PyCS_Commands", "FindHaloCenters.py"),
+        "desc": "Find the centers of the DM halos in each snapshot.",
+        "options": {
+            "-sim": "s",
+            "-simdir": "s",
+            "-o": "s",
+            "-l": "s",
+            "-np": "i"
+        },
+    },
     "Generate Image Sequence": {
         "path": os.path.join(_pycs_head, "PyCS_Commands", "GenerateImageSequence.py"),
         "desc": "Plot a sequence of images with a selection of kwargs for the selected simulation.",
