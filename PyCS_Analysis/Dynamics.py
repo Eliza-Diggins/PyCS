@@ -352,7 +352,7 @@ the ``self.dm`` object which comes from the first snapshot and the DM from the s
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Functions -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-def find_halo_COM(simulation: str, nproc=1):
+def find_halo_center(simulation: str, nproc=1):
     """
     Locates the centers of mass for each of the halos present in the simulation.
 
@@ -378,7 +378,7 @@ def find_halo_COM(simulation: str, nproc=1):
     """
     # Logging
     # ------------------------------------------------------------------------------------------------------------------#
-    fdbg_string = "%sfind_halo_COM: " % _dbg_string
+    fdbg_string = "%sfind_halo_center: " % _dbg_string
     log_print("Attempting to find COMs for simulation %s." % simulation, fdbg_string, "debug")
 
     # SETUP
@@ -486,10 +486,12 @@ def find_halo_COM(simulation: str, nproc=1):
     #- Creating the directory if necessary -#
     if not os.path.exists(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation)):
         pt.Path(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation)).mkdir(parents=True)
+        simlog.log[simulation_log_key]["DatasetsLocation"] = os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation)
+        simlog._write()
 
     #- saving the data -#
     oframe = pd.DataFrame(output_dict)
-    oframe.to_csv(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation,"halo_com.csv"))
+    oframe.to_csv(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation,"halo_center.csv"))
 
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -498,4 +500,4 @@ def find_halo_COM(simulation: str, nproc=1):
 if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT")
     # Making the bridge object
-    print(find_halo_COM("ColTest", nproc=1))
+    print(find_halo_center("ColTest", nproc=1))
