@@ -20,6 +20,7 @@ from PyCS_Core.PyCS_Errors import *
 from PyCS_System.SimulationMangement import SimulationLog
 from PyCS_Analysis.Profiles import generate_profile_sequence
 import warnings
+import pynbody as pyn
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
@@ -74,6 +75,8 @@ if __name__ == '__main__':
     parser.add_argument("-Lw","--L_linewidth",help="The linewidth to use (Lambda)",default=None)
     parser.add_argument("-Lc", "--L_color", help="The color to use (Lambda)", default=None)
     parser.add_argument("-LL","--L_label",help="The label for the Lambda function",default=None)
+    parser.add_argument("-orig","--origin",help="The location of the origin. Array floats in kpc.",nargs="+",default=None)
+    parser.add_argument("-cam","--camera",help="The location of the camera (az,elev).",nargs="+",default=None)
     #- Operations args -#
     parser.add_argument("-o", "--output_type", type=str, default="FILE", help="The type of output to use for logging.")
     parser.add_argument("-l", "--logging_level", type=int, default=10, help="The level of logging to use.")
@@ -86,6 +89,26 @@ if __name__ == '__main__':
     cdbg_string = Fore.CYAN + Style.BRIGHT + _dbg_string + Style.RESET_ALL + " [" + Fore.GREEN + "Command Wizard" + Style.RESET_ALL + "]"
     # ArgCHECK
     ########################################################################################################################
+    # Camera Management
+    #------------------------------------------------------------------------------------------------------------------#
+    if not args.origin:
+        origin = pyn.array.SimArray([0,0,0],"kpc")
+    else:
+        # The args.origin should be a list of kpcs
+        origin = pyn.array.SimArray([float(val) for val in args.origin],"kpc")
+
+    if not args.camera:
+        camera = (0,0)
+    else:
+        camera = [float(val) for val in args.camera]
+
+    if len(camera) != 2:
+        raise ValueError("The length of args.camera should be 2, not %s."%len(camera))
+
+    if len(origin) != 3:
+        raise ValueError("The length of args.origin should be 3, not %s."%len(camera))
+
+    view_params = {"center":origin,"angles":camera}
 
     #- Checking for simulation existence -#
     if not (args.simulation_name or args.simulation_directory):
@@ -153,6 +176,7 @@ if __name__ == '__main__':
         "lambda_kwargs":lambda_kwargs,
         "Lambda_label":args.L_label,
         "ylims": ylims,
+        "view_kwargs":view_params
     }
 
     kwargs = {key: value for key, value in removable_kwargs.items() if value != None}

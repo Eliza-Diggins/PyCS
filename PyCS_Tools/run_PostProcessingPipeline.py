@@ -76,7 +76,9 @@ commands_dict = {
                       "The colormap to use for the plotting."),
             "-o": ("", "", "The logging output."),
             "-l": ("", "", "The debugging level."),
-            "-np": ("$SLURM_NTASKS", "$SLURM_NTASKS", "The number of processors to use.")
+            "-np": ("$SLURM_NTASKS", "$SLURM_NTASKS", "The number of processors to use."),
+            "-cam":("","","The camera location (az,elev)"),
+            "-orig":("","","The origin location (x,y,z)")
         }
     },
     "Generate Profile Sequence":{
@@ -110,7 +112,9 @@ commands_dict = {
             "-Lc": ("", "", "Lambda color"),
             "-o"     : ("", "", "The logging output."),
             "-l"     : ("", "", "The debugging level."),
-            "-np"    : ("$SLURM_NTASKS", "$SLURM_NTASKS", "The number of processors to use.")
+            "-np"    : ("$SLURM_NTASKS", "$SLURM_NTASKS", "The number of processors to use."),
+            "-cam":("","","The camera location (az,elev)"),
+            "-orig":("","","The origin location (x,y,z)")
         }
     },
     "Generate DM-Baryon Image Sequence": {
@@ -137,7 +141,9 @@ commands_dict = {
                    "The colors to use for the dark matter and baryons."),
             "-o": ("", "", "The logging output."),
             "-l": ("", "", "The debugging level."),
-            "-np": ("$SLURM_NTASKS", "$SLURM_NTASKS", "The number of processors to use.")
+            "-np": ("$SLURM_NTASKS", "$SLURM_NTASKS", "The number of processors to use."),
+            "-cam":("","","The camera location (az,elev)"),
+            "-orig":("","","The origin location (x,y,z)")
         }
     },
     "Plot Single Snapshot": {
@@ -169,7 +175,9 @@ commands_dict = {
                       str(CONFIG["Visualization"]["ColorMaps"]["default_image_colormap"].name),
                       "The colormap to use for the plotting."),
             "-o": ("", "", "The logging output."),
-            "-l": ("", "", "The debugging level.")
+            "-l": ("", "", "The debugging level."),
+            "-cam":("","","The camera location (az,elev)"),
+            "-orig":("","","The origin location (x,y,z)")
         }
     },
     "Plot Single Profile": {
@@ -205,6 +213,8 @@ commands_dict = {
             "-Lc": ("", "", "Lambda color"),
             "-o": ("", "", "The logging output."),
             "-l": ("", "", "The debugging level."),
+            "-cam":("","","The camera location (az,elev)"),
+            "-orig":("","","The origin location (x,y,z)")
         }
     },
     "Plot Single DM-B Snapshot": {
@@ -232,7 +242,9 @@ commands_dict = {
                    str(CONFIG["Visualization"]["Images"]["DM-B_colors"]),
                    "The colors to use for the dark matter and baryons."),
             "-o": ("", "", "The logging output."),
-            "-l": ("", "", "The debugging level.")
+            "-l": ("", "", "The debugging level."),
+            "-cam":("","","The camera location (az,elev)"),
+            "-orig":("","","The origin location (x,y,z)")
         }
     }
 }
@@ -268,6 +280,8 @@ commands_dict_data = {
             "-o": "s",
             "-l": "s",
             "-np": "i",
+            "-cam":"l",
+            "-orig":"l"
         }
     },
     "Generate Profile Sequence": {
@@ -302,6 +316,8 @@ commands_dict_data = {
             "-o"     :"s",
             "-l"     :"s",
             "-np"    :"i",
+            "-cam"   :"l",
+            "-orig"  :"l"
         }
     },
     "Generate DM-Baryon Image Sequence": {
@@ -321,6 +337,8 @@ commands_dict_data = {
             "-l": "s",
             "-c": "l",
             "-np": "i",
+            "-cam"   :"l",
+            "-orig"  :"l"
         }
     },
     "Plot Single Snapshot": {
@@ -344,6 +362,8 @@ commands_dict_data = {
             "-cmap": "s",
             "-o": "s",
             "-l": "s",
+            "-cam"   :"l",
+            "-orig"  :"l"
         }
     },
     "Plot Single Profile": {
@@ -379,6 +399,8 @@ commands_dict_data = {
             "-Lc": "s",
             "-o": "s",
             "-l": "s",
+            "-cam"   :"l",
+            "-orig"  :"l"
         }
     },
     "Plot Single DM-B Snapshot": {
@@ -399,6 +421,8 @@ commands_dict_data = {
             "-c": "l",
             "-o": "s",
             "-l": "s",
+            "-cam"   :"l",
+            "-orig"  :"l"
         }
     }
 }
