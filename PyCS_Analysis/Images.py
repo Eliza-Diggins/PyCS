@@ -16,7 +16,8 @@ from PyCS_Core.Configuration import read_config, _configuration_path
 import pynbody as pyn
 from PyCS_Analysis.plot_utils import get_color_binary_colormap
 from PyCS_Core.Logging import set_log, log_print, make_error
-from PyCS_Analysis.Analysis_Utils import get_families, align_snapshot, make_pseudo_entropy, make_mach_number, generate_xray_emissivity
+from PyCS_Analysis.Analysis_Utils import get_families, align_snapshot, make_pseudo_entropy, make_mach_number, \
+    generate_xray_emissivity, SnapView
 from PyCS_Core.PyCS_Errors import *
 import matplotlib.pyplot as plt
 from PyCS_System.SimulationMangement import SimulationLog
@@ -75,67 +76,67 @@ __quantities = {
         "unit": CONFIG["units"]["default_velocity_unit"],
         "fancy": "x Velocity",
         "families": ["gas", "stars", "dm"],
-        "default_settings":{
-            "cmap":plt.cm.seismic
+        "default_settings": {
+            "cmap": plt.cm.seismic
         }
     },
     "vy": {
         "unit": CONFIG["units"]["default_velocity_unit"],
         "fancy": "y Velocity",
         "families": ["gas", "stars", "dm"],
-        "default_settings":{
-            "cmap":plt.cm.seismic
+        "default_settings": {
+            "cmap": plt.cm.seismic
         }
     },
     "vz": {
         "unit": CONFIG["units"]["default_velocity_unit"],
         "fancy": "z Velocity",
         "families": ["gas", "stars", "dm"],
-        "default_settings":{
-            "cmap":plt.cm.seismic
+        "default_settings": {
+            "cmap": plt.cm.seismic
         }
     },
     "temp": {
         "unit": CONFIG["units"]["default_temperature_unit"],
         "fancy": "Temperature",
         "families": ["gas"],
-        "default_settings":{
-            "cmap":plt.cm.cubehelix
+        "default_settings": {
+            "cmap": plt.cm.cubehelix
         }
     },
     "rho": {
         "unit": CONFIG["units"]["default_density_unit"],
         "fancy": "Density",
         "families": ["gas"],
-        "default_settings":{
-            "cmap":plt.cm.inferno,
-            "log":True
+        "default_settings": {
+            "cmap": plt.cm.inferno,
+            "log": True
         }
     },
     "entropy": {
         "unit": "keV cm^2",
         "fancy": "Entropy",
         "families": ["gas"],
-        "default_settings":{
-            "cmap":plt.cm.jet,
-            "log":True
+        "default_settings": {
+            "cmap": plt.cm.jet,
+            "log": True
         }
     },
     "mach": {
         "unit": "",
         "fancy": "Mach Number",
-        "families":["gas"],
-        "default_settings":{
-            "cmap":plt.cm.hot
+        "families": ["gas"],
+        "default_settings": {
+            "cmap": plt.cm.hot
         }
     },
     "xray": {
         "unit": "erg cm^-3 s^-1",
         "fancy": r"\epsilon^{ff}",
-        "families":["gas"],
-        "default_settings":{
-            "cmap":plt.cm.cividis,
-            "log":True
+        "families": ["gas"],
+        "default_settings": {
+            "cmap": plt.cm.cividis,
+            "log": True
         }
     }
 }
@@ -211,7 +212,7 @@ def merge_alpha_images(alpha_arrays: list, colors: list):
         make_error(ValueError, fdbg_string, "The set of arrays cannot be empty.")
     elif len(alpha_arrays) != len(colors):
         make_error(ValueError, fdbg_string, "The color list %s is not the same length as the arrays. (%s,%s)" % (
-        colors, len(colors), len(alpha_arrays)))
+            colors, len(colors), len(alpha_arrays)))
     else:
         pass  # Nothing wrong
 
@@ -267,12 +268,32 @@ def mp_make_plot(arg):
     # Main script
     ########################################################################################################################
     args, kwargs = arg  # splitting the args and kwargs out of the tuple
+
+    # Camera Management
+    # ------------------------------------------------------------------------------------------------------------------#
+    if "view_kwargs" in kwargs:
+        view_kwargs = kwargs["view_kwargs"]
+        del kwargs['view_kwargs']
+    else:
+        view_kwargs = None
+
+    # MAIN
+    # ------------------------------------------------------------------------------------------------------------------#
     for simulation in args[0]:  # cycle through all of the output folders.
         path = os.path.join(args[2], simulation)
-        snap = pyn.load(path)
         # - Aligning the snap -#
         try:
-            align_snapshot(snap)
+            # - Cleanup -#
+            if view_kwargs:
+                view = SnapView(view_parameters=view_kwargs)  # grabbing the view
+                view.load_snapshot(path)
+                snap = view.snapshot
+                view.snapshot = None
+                gc.collect()
+            else:
+                snap = pyn.load(path)
+                align_snapshot(snap)
+
         except MemoryError:
             log_print("Ran out of memory", fdbg_string, "critical")
             exit()
@@ -302,12 +323,32 @@ def mp_make_gas_dm_plot(arg):
     # Main script
     ########################################################################################################################
     args, kwargs = arg  # splitting the args and kwargs out of the tuple
+
+    # Camera Management
+    # ------------------------------------------------------------------------------------------------------------------#
+    if "view_kwargs" in kwargs:
+        view_kwargs = kwargs["view_kwargs"]
+        del kwargs['view_kwargs']
+    else:
+        view_kwargs = None
+
+    # MAIN
+    # ------------------------------------------------------------------------------------------------------------------#
     for simulation in args[0]:  # cycle through all of the output folders.
         path = os.path.join(args[2], simulation)
-        snap = pyn.load(path)
         # - Aligning the snap -#
         try:
-            align_snapshot(snap)
+            # - Cleanup -#
+            if view_kwargs:
+                view = SnapView(view_parameters=view_kwargs)  # grabbing the view
+                view.load_snapshot(path)
+                snap = view.snapshot
+                view.snapshot = None
+                gc.collect()
+            else:
+                snap = pyn.load(path)
+                align_snapshot(snap)
+
         except MemoryError:
             log_print("Ran out of memory", fdbg_string, "critical")
             exit()
@@ -359,7 +400,7 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
             make_error(SnapshotError, fdbg_string, "Families %s were not found." % families)
     else:
         try:
-            families = get_families(snapshot,__quantities[qty]["families"])
+            families = get_families(snapshot, __quantities[qty]["families"])
         except KeyError:
             families = snapshot.families()
 
@@ -390,11 +431,11 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
 
     for family in families:
         ### Cycle through each family and generate the image array.
-        #try:
+        # try:
         output_array += pyn.plot.sph.image(snapshot[family], qty=qty, noplot=True, **kwargs, threaded=False)
         log_print("Plotted family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
-                      fdbg_string, "info")
-        #except Exception:
+                  fdbg_string, "info")
+        # except Exception:
         #    log_print("Failed to plot family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
         #              fdbg_string, "error")
 
@@ -526,7 +567,7 @@ def make_gas_dm_image(snapshot,
                       vmin_dm=critical_density,
                       vmax_dm=None,
                       vmin_gas=critical_density,
-                      vmax_gas =None,
+                      vmax_gas=None,
                       colors=None,
                       time_units=pyn.units.Unit(CONFIG["units"]["default_time_unit"]),
                       length_units=CONFIG["units"]["default_length_unit"],
@@ -565,12 +606,10 @@ def make_gas_dm_image(snapshot,
     # Generating the plots
     ####################################################################################################################
     # building the images #
-    print(kwargs)
     dark_matter_array = generate_image_array(snapshot, "rho", families=["dm"], **kwargs)
     baryonic_array = generate_image_array(snapshot, "rho", families=["gas"], **kwargs)
 
     # - creating norms -#
-    print(vmin_dm,vmax_dm,vmin_gas,vmax_gas)
     if not vmax_dm:
         vmax_dm = np.amax(dark_matter_array)  # grabbing vmins and vmaxs.
     else:
@@ -583,15 +622,14 @@ def make_gas_dm_image(snapshot,
     # setting vmin
     ##- Recognize that if vmin is united, then we have to change to correct units. if no, leave as float.
     try:
-        vmin_gas,vmin_dm = vmin_gas.in_units(kwargs["units"]),vmin_dm.in_units(kwargs["units"])
+        vmin_gas, vmin_dm = vmin_gas.in_units(kwargs["units"]), vmin_dm.in_units(kwargs["units"])
     except Exception:
-        vmin_gas,vmin_dm = vmin_gas,vmin_dm  # we just set trivially.
+        vmin_gas, vmin_dm = vmin_gas, vmin_dm  # we just set trivially.
 
-    print(vmin_dm, vmax_dm, vmin_gas, vmax_gas)
     ##- Generating the norms -##
     norm_dm, norm_gas = mpl.colors.LogNorm(vmin=vmin_dm, vmax=vmax_dm, clip=True), mpl.colors.LogNorm(vmin=vmin_gas,
-                                                                                                   vmax=vmax_gas,
-                                                                                                   clip=True)
+                                                                                                      vmax=vmax_gas,
+                                                                                                      clip=True)
 
     # - generating the extent -#
     numerical_width = float(pyn.units.Unit(kwargs["width"]).in_units(length_units))
@@ -605,41 +643,41 @@ def make_gas_dm_image(snapshot,
     gc.collect()
     # Plotting
     ####################################################################################################################
-    #- Figure settings -#
-    l = 8 # the size of the actual image in inches
-    a1,a2,b1,b2 = (0.1,0.03,0.1,0.1) # these are the subplot margins
-    w,h = l/((0.74)*(1-(a1+a2))),l/(1-(b1+b2))
-    axis_ratio = h/w
+    # - Figure settings -#
+    l = 8  # the size of the actual image in inches
+    a1, a2, b1, b2 = (0.1, 0.03, 0.1, 0.1)  # these are the subplot margins
+    w, h = l / ((0.74) * (1 - (a1 + a2))), l / (1 - (b1 + b2))
+    axis_ratio = h / w
     # - Making the figure -#
-    fig = plt.figure(figsize=(8,8*axis_ratio))
+    fig = plt.figure(figsize=(8, 8 * axis_ratio))
     axes = fig.add_subplot(111)
 
     axes.imshow(final_image, extent=extent)
 
     # - TITLES -#
-    plt.title("Comparative Distribution of Dark Matter and Baryonic Matter\n"+r"$t = \mathrm{%s\;%s}$" % (
+    plt.title("Comparative Distribution of Dark Matter and Baryonic Matter\n" + r"$t = \mathrm{%s\;%s}$" % (
         np.round(snapshot.properties["time"].in_units(time_units), decimals=2),
         time_units.latex()), fontsize=10)
-
 
     # - AXES LABELS -#
     axes.set_ylabel(r"$y\;\;\left[\mathrm{%s}\right]$" % (pyn.units.Unit(length_units).latex()))
     axes.set_xlabel(r"$x\;\;\left[\mathrm{%s}\right]$" % (pyn.units.Unit(length_units).latex()))
     axes.set_facecolor("black")
 
-    #- Adding colorbars -#
+    # - Adding colorbars -#
 
     ##- Fetching the necessary colormaps -##
-    cmap_gas,cmap_dm = tuple([get_color_binary_colormap(col) for col in colors]) # grabs the correct colormaps
+    cmap_gas, cmap_dm = tuple([get_color_binary_colormap(col) for col in colors])  # grabs the correct colormaps
 
     # creating the mapables #
-    bar_gas,bar_dm = plt.cm.ScalarMappable(norm=norm_gas,cmap=cmap_gas),plt.cm.ScalarMappable(norm=norm_dm,cmap=cmap_dm)
-    plt.colorbar(bar_gas,label=r"Gas Density / $%s$"%kwargs["units"].latex(),fraction=0.1,pad=0.05)
-    plt.colorbar(bar_dm,label=r"Dark Matter Density / $%s$"%kwargs["units"].latex(),fraction=0.1,pad=0.01)
+    bar_gas, bar_dm = plt.cm.ScalarMappable(norm=norm_gas, cmap=cmap_gas), plt.cm.ScalarMappable(norm=norm_dm,
+                                                                                                 cmap=cmap_dm)
+    plt.colorbar(bar_gas, label=r"Gas Density / $%s$" % kwargs["units"].latex(), fraction=0.1, pad=0.05)
+    plt.colorbar(bar_dm, label=r"Dark Matter Density / $%s$" % kwargs["units"].latex(), fraction=0.1, pad=0.01)
 
-    #- adjusting subplots -#
-    plt.subplots_adjust(left=a1,right=1-a2,bottom=b1,top=1-b2)
-    #- saving -#
+    # - adjusting subplots -#
+    plt.subplots_adjust(left=a1, right=1 - a2, bottom=b1, top=1 - b2)
+    # - saving -#
     if save:
         plt.savefig(end_file)
 
@@ -718,13 +756,29 @@ def generate_image_sequence(simulation_directory, qty, multiprocess=True, nproc=
             executor.map(mp_make_plot, arg)
 
     else:
+        # CAMERA MANAGEMENT
+        # ------------------------------------------------------------------------------------------------------------------#
+        if "view_kwargs" in kwargs:
+            view_kwargs = kwargs["view_kwargs"]
+            del kwargs["view_kwargs"]
+        else:
+            view_kwargs = None
+
+        # Running
+        # --------------------------------------------------------------------------------------------------------------#
         for output_direct in output_directories:  # we are plotting each of these.
             snap_number = output_direct.replace("output_", "")  # this is just the snapshot number
 
             # - Cleanup -#
-            snapshot = pyn.load(os.path.join(simulation_directory, output_direct))
-
-            align_snapshot(snapshot)
+            if view_kwargs:
+                view = SnapView(view_parameters=view_kwargs)  # grabbing the view
+                view.load_snapshot(os.path.join(simulation_directory, output_direct))
+                snapshot = view.snapshot
+                view.snapshot = None
+                gc.collect()
+            else:
+                snapshot = pyn.load(os.path.join(simulation_directory, output_direct))
+                align_snapshot(snapshot)
 
             # - Plotting -#
             make_plot(snapshot, qty, end_file=os.path.join(output_directory, "Image_%s.png" % snap_number), save=True,
@@ -794,13 +848,28 @@ def generate_dm_baryon_image_sequence(simulation_directory, multiprocess=True, n
             executor.map(mp_make_gas_dm_plot, arg)
 
     else:
+        # CAMERA MANAGEMENT
+        # ------------------------------------------------------------------------------------------------------------------#
+        if "view_kwargs" in kwargs:
+            view_kwargs = kwargs["view_kwargs"]
+            del kwargs["view_kwargs"]
+        else:
+            view_kwargs = None
+
+        # Running
+        # --------------------------------------------------------------------------------------------------------------#
         for output_direct in output_directories:  # we are plotting each of these.
             snap_number = output_direct.replace("output_", "")  # this is just the snapshot number
-
             # - Cleanup -#
-            snapshot = pyn.load(os.path.join(simulation_directory, output_direct))
-
-            align_snapshot(snapshot)
+            if view_kwargs:
+                view = SnapView(view_parameters=view_kwargs)  # grabbing the view
+                view.load_snapshot(os.path.join(simulation_directory, output_direct))
+                snapshot = view.snapshot
+                view.snapshot = None
+                gc.collect()
+            else:
+                snapshot = pyn.load(os.path.join(simulation_directory, output_direct))
+                align_snapshot(snapshot)
 
             # - Plotting -#
             make_gas_dm_image(snapshot, end_file=os.path.join(output_directory, "Image_%s.png" % snap_number),
@@ -816,9 +885,8 @@ def generate_dm_baryon_image_sequence(simulation_directory, multiprocess=True, n
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT", level=10)
-    data = pyn.load("/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500")
 
-    align_snapshot(data)
-
-    make_plot(data,"temp",width="5000 kpc",save=False)
+    generate_image_sequence("/home/ediggins/PyCS/RAMSES_simulations/TestSim", "rho", multiprocess=False, nproc=1,
+                            families="gas", view_kwargs={"center": [0, 0, 0],
+                                                         "angles": [0, 70]}, av_z=True, log=True)
     plt.show()

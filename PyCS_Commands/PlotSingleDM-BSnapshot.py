@@ -14,11 +14,12 @@ import argparse
 from PyCS_Core.Configuration import read_config, _configuration_path
 from PyCS_Core.Logging import set_log, log_print
 from PyCS_Analysis.Images import make_gas_dm_image
-from PyCS_Analysis.Analysis_Utils import align_snapshot
+from PyCS_Analysis.Analysis_Utils import SnapView
 from PyCS_Core.PyCS_Errors import *
 import pathlib as pt
 from PyCS_System.SimulationMangement import SimulationLog
 from colorama import Fore, Style
+import gc
 import pynbody as pyn
 from datetime import datetime
 import warnings
@@ -60,6 +61,8 @@ if __name__ == '__main__':
     parser.add_argument("-o", "--output_type", type=str, default="FILE", help="The type of output to use for logging.")
     parser.add_argument("-l", "--logging_level", type=int, default=10, help="The level of logging to use.")
     parser.add_argument("-w", "--width", help="The width of the region.", default=None)
+    parser.add_argument("-orig","--origin",help="The location of the origin. Array floats in kpc.",nargs="+",default=None)
+    parser.add_argument("-cam","--camera",help="The location of the camera (az,elev).",nargs="+",default=None)
     args = parser.parse_args()
 
     # Setup
@@ -84,6 +87,28 @@ if __name__ == '__main__':
             raise ValueError("--colors must have length 2.")
     else:
         colors = None
+
+    # Camera Management
+    #------------------------------------------------------------------------------------------------------------------#
+    if not args.origin:
+        origin = pyn.array.SimArray([0,0,0],"kpc")
+    else:
+        # The args.origin should be a list of kpcs
+        origin = pyn.array.SimArray([float(val) for val in args.origin],"kpc")
+
+    if not args.camera:
+        camera = (0,0)
+    else:
+        camera = [float(val) for val in args.camera]
+
+    if len(camera) != 2:
+        raise ValueError("The length of args.camera should be 2, not %s."%len(camera))
+
+    if len(origin) != 3:
+        raise ValueError("The length of args.origin should be 3, not %s."%len(camera))
+
+    view_params = {"center":origin,"angles":camera}
+
 
     if not (args.simulation_name or args.simulation_directory):
         raise OSError("%s: Failed to find either -sim or -simdir. At least one is necessary..." % cdbg_string)
@@ -121,8 +146,11 @@ if __name__ == '__main__':
 
     # Running
     ########################################################################################################################
-    simSnap = pyn.load(os.path.join(simulation_directory, "output_%s" % args.ns))
-    align_snapshot(simSnap)
+    view = SnapView(view_parameters=view_params) # grabbing the view
+    view.load_snapshot(os.path.join(simulation_directory, "output_%s" % args.ns))
+    simSnap = view.snapshot
+    view.snapshot = None
+    gc.collect()
 
     kwargs = {
         "vmin_gas": vmin_gas,

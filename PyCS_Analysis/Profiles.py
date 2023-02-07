@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import gc
 import warnings
 from multiprocessing import current_process
-from PyCS_Analysis.Analysis_Utils import align_snapshot,make_pseudo_entropy,make_mach_number,generate_xray_emissivity
+from PyCS_Analysis.Analysis_Utils import align_snapshot,make_pseudo_entropy,make_mach_number,generate_xray_emissivity,SnapView
 from PyCS_System.SimulationMangement import SimulationLog
 from PyCS_Analysis.builtin_functions import hydrostatic_mass
 from datetime import datetime
@@ -245,15 +245,27 @@ def mp_make_profile(arg):
     # Main script
     ########################################################################################################################
     args, kwargs = arg  # splitting the args and kwargs out of the tuple
+
+    if "view_kwargs" in kwargs:
+        view_kwargs = kwargs["view_kwargs"]
+        del kwargs["view_kwargs"]
+    else:
+        view_kwargs = None
+
     for snapshot_name in args[0]:
         # We cycle through each of the snapshot locations
         path = os.path.join(args[2], snapshot_name)  # proper location of the snapshot.
-        snap = pyn.load(path)  # load the snap shot
 
         # Snapshot management
         ################################################################################################################
         try:
-            align_snapshot(snap)
+            # - Cleanup -#
+            view = SnapView(view_parameters=view_kwargs)  # grabbing the view
+            view.load_snapshot(path)
+            snap = view.snapshot
+            view.snapshot = None
+            gc.collect()
+
         except MemoryError:
             log_print("Ran out of memory", fdbg_string, "critical")
             exit()
@@ -771,6 +783,13 @@ def generate_profile_sequence(simulation_directory, qty, multiprocess=True, npro
                           "output" in dir]  # grab all of the output directories.
     log_print("Found %s figures to plot." % len(output_directories), fdbg_string, "debug")
 
+    # Camera Management
+    #------------------------------------------------------------------------------------------------------------------#
+    if "view_kwargs" in kwargs:
+        view_kwargs = kwargs["view_kwargs"]
+        del kwargs["view_kwargs"]
+    else:
+        view_kwargs = None
     # Plotting
     ########################################################################################################################
     if multiprocess and nproc > 1:
@@ -788,9 +807,11 @@ def generate_profile_sequence(simulation_directory, qty, multiprocess=True, npro
             snap_number = output_direct.replace("output_", "")  # this is just the snapshot number
 
             # - Cleanup -#
-            snapshot = pyn.load(os.path.join(simulation_directory, output_direct))
-
-            align_snapshot(snapshot)
+            view = SnapView(view_parameters=view_kwargs)  # grabbing the view
+            view.load_snapshot(os.path.join(simulation_directory, output_direct))
+            snapshot = view.snapshot
+            view.snapshot = None
+            gc.collect()
 
             # - Plotting -#
             make_profile_plot(snapshot, qty, end_file=os.path.join(output_directory, "Profile_%s.png" % snap_number),

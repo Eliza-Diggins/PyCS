@@ -42,6 +42,187 @@ rho_critical = 8.5e-27 * pyn.units.Unit("kg m^-3")  # universe critical density.
 # --------------------------------------------- Multi-Processing Functions ----------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+# ------------------------------------------------------ Classes --------------------------------------------------------#
+# --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+class SnapView:
+    """
+    The ``SnapView`` class is designed to allow me to interface easily with different orientations of ``pyn.snapshots.SimSnap``.
+
+    Essentially, we use ``PyCS_Analysis.Analysis_Utils.SnapView`` as an interface by which to load snapshots from file.
+    in doing so, we automatically make use of the ``align_snapshot`` functionality.
+    """
+    cdbg_string = "%sSnapView:" % _dbg_string
+
+    # ----------------------------------------------------------------------------------------------------------------------#
+    #      DUNDER METHODS                                                                                                  #
+    # ----------------------------------------------------------------------------------------------------------------------#
+    def __init__(self, view_parameters=None):
+        """
+
+        Parameters
+
+        ----------
+
+        view_parameters: The viewing parameters, should be ``dict`` with 2 parameters: ``angles = (az,elev)`` and ``center = (x,y,z)``. Note
+        that ``center`` should ALWAYS be in the original frame of reference, not in the prime'd reference frame.
+        """
+        # Debugging
+        # --------------------------------------------------------------------------------------------------------------#
+        fdbg_string = "%s:__init__(): " % SnapView.cdbg_string
+        log_print("Generating a SnapView object with view_parameters: %s." % (view_parameters), fdbg_string, "debug")
+
+        # Management
+        # --------------------------------------------------------------------------------------------------------------#
+        # setting a view parameter #
+
+        if not view_parameters:  # There were no specified view parameters so we choose a default.
+            self.vp = {
+                "angles": [0,0],
+                "center": pyn.array.SimArray([0,0,0],"kpc")
+            }
+        else:
+            self.vp = view_parameters
+
+        # - Adding additional attributes -#
+        self.snapshot = None  # This stores a snapshot object if we eventually create it.
+
+
+    def __setitem__(self, key, value):
+        """
+        Allows the user to set the new values of the ``view_parameters`` in such a way as to immediately facilitate the
+        necessary rotation / centering.
+
+        Parameters
+        ----------
+        key: The ``key`` value to alter, can be either ``center`` or
+        value
+
+        Returns
+        -------
+
+        """
+        # Debugging
+        #--------------------------------------------------------------------------------------------------------------#
+        fdbg_string = "%s__setitem__(): "%self.cdbg_string
+        log_print("Changing the view parameter %s to %s."%(key,value),fdbg_string,"debug")
+
+        # Sanitizing input
+        #--------------------------------------------------------------------------------------------------------------#
+        if key not in ["angles","center"]:
+            make_error(KeyError,fdbg_string,"The key %s is not a valid key."%key)
+
+        if key == "angles":
+            # We are attempting to alter the angles
+            #- Reversing the original angles -#
+            log_print("Rotating %s -> (0,0)"%str(self.vp["angles"]),fdbg_string,"debug")
+
+            self.snapshot.rotate_x(self.vp["angles"][1])
+            self.snapshot.rotate_z(self.vp["angles"][0])
+
+            #- Applying the new rotations -#
+            log_print("Rotating (0,0) -> %s"%str(value),fdbg_string,"debug")
+
+            self.snapshot.rotate_z(-value[0])
+            self.snapshot.rotate_x(-value[1])
+
+            self.vp["angles"] = value
+        else:
+            # We are attempting to alter the centering
+            # Sanitize
+            if isinstance(value,(list,np.ndarray,tuple)):
+                value = pyn.array.SimArray(value,CONFIG["units"]["default_length_unit"])
+
+            units = value.units
+
+            # logging
+            log_print("Centering on %s."%str(value),fdbg_string,"debug")
+
+            # Convering to the correct coordinates #
+            angles = [-np.deg2rad(val) for val in self.vp["angles"]]
+            rot_matrix = np.array([[np.cos(angles[0]),-np.sin(angles[0]),0],
+                                   [np.cos(angles[1])*np.sin(angles[0]),np.cos(angles[1])*np.cos(angles[0]),-np.sin(angles[1])],
+                                   [np.sin(angles[1])*np.sin(angles[0]),np.sin(angles[1])*np.cos(angles[0]),np.cos(angles[1])]])
+            
+            value = np.matmul(rot_matrix,np.array(value).transpose())
+            
+            log_print("Transformed under \n%s \nmatrix (angles=%s->%s). New value is %s."%(rot_matrix,self.vp["angles"],str(angles),str(value)),fdbg_string,"debug")
+            
+            self.snapshot["pos"] -= pyn.array.SimArray(value,units)
+
+            
+    # -----------------------------------------------------------------------------------------------------------------#
+    #     Protected Methods                                                                                            #
+    # -----------------------------------------------------------------------------------------------------------------#
+
+    # -----------------------------------------------------------------------------------------------------------------#
+    #     Methods                                                                                                      #
+    # -----------------------------------------------------------------------------------------------------------------#
+    def load_snapshot(self,snapshot_path:str)->pyn.snapshot.SimSnap:
+        """
+        Aligns a RAMSES snapshot and fixes the units.
+        Parameters
+        ----------
+        snapshot_path: The snapshot in question.
+
+        Returns: ``pyn.snapshot.SimSnap`` object representing the loaded snap.
+        -------
+
+        """
+        # Debugging
+        #--------------------------------------------------------------------------------------------------------------#
+        fdbg_string = "%salign_snapshot: " % self.cdbg_string
+        log_print("Attempting to align RAMSES snapshot at %s." % snapshot_path, fdbg_string, "debug")
+
+        # Loading the snapshot
+        #--------------------------------------------------------------------------------------------------------------#
+        snapshot = pyn.load(snapshot_path)
+        self.snapshot = snapshot # grabbing a link
+
+        # Sanitizing, Aligning, changing boxsize
+        #--------------------------------------------------------------------------------------------------------------#
+        #- Santizing -#
+        try:
+            boxlength = self.snapshot.properties[
+                            "boxsize"] / 2  # This is the distance from (0,0,0) of the center of the sim box.
+        except KeyError:
+            raise IsNotRAMSESError("The simulation is not a RAMSES snapshot.")
+        except AttributeError:
+            raise IsNotRAMSESError("The simulation is not a RAMSES snapshot.")
+
+        ##- Increasing the boxsize -##
+        self.snapshot.properties["boxsize"] = 2 * self.snapshot.properties["boxsize"]
+
+        #- Aligning -#
+        self.snapshot["pos"] -= boxlength
+
+        ##- Managing Units -##
+        self.snapshot.physical_units()  # convert from raw computational units to CSG units.
+
+        # Centering
+        #--------------------------------------------------------------------------------------------------------------#
+        #  IN this 1 case, we are able to center with simplicity because we do not need to worry about the
+        #  orientation.
+        #
+        self.snapshot["pos"] -= self.vp["center"]
+
+        log_print("Centered the snapshot at location %s."%self.vp["center"],fdbg_string,"debug")
+        # Managing the View
+        #--------------------------------------------------------------------------------------------------------------#
+        #  REMEMBER: We are not being as careful as is possible. We apply THE Z ROTATION first, then rotate
+        #            about the x-axis as we apply the elevation change.
+        #
+        if self.vp["angles"] != [0,0]:
+            # we actually have angles to apply.
+            self.snapshot.rotate_z(-self.vp["angles"][0])
+            self.snapshot.rotate_x(-self.vp["angles"][1])
+
+            log_print("Centered the snapshot on angles %s."%str(self.vp["angles"]),fdbg_string,"debug")
+        else:
+            pass
+
+        log_print("Aligned %s." % self.snapshot, fdbg_string, "debug")
+
+# --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # --------------------------------------------------- Sub-Functions -----------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # Simple sub-functions
@@ -168,8 +349,8 @@ def smooth_out(snapshot, family):
         make_error(SnapshotError, fdbg_string, "%s is not a valid family in %s." % (family, snapshot))
 
     ### Running commands ###
-    data[fam]["smooth"] = pyn.sph.smooth(data[fam])
-    data[fam]["rho"] = pyn.sph.rho(data[fam])
+    snapshot[fam]["smooth"] = pyn.sph.smooth(snapshot[fam])
+    snapshot[fam]["rho"] = pyn.sph.rho(snapshot[fam])
 
 
 def get_families(snapshot, family_names: list):
@@ -356,10 +537,11 @@ if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT")
     import matplotlib.pyplot as plt
 
-    data = pyn.load("/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500")
-    align_snapshot(data)
-
-    make_pseudo_entropy(data)
-    print(data.g["entropy"], data.g["entropy"].units)
-    pyn.plot.sph.image(data.g, qty="entropy", width="5000 kpc", cmap=plt.cm.cubehelix)
+    view = SnapView()
+    view.load_snapshot("/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500")
+    view["angles"] = (0,90)
+    view["center"] = pyn.array.SimArray([0,0,-1],"Mpc")
+    make_pseudo_entropy(view.snapshot)
+    print(view.snapshot.g["entropy"], view.snapshot.g["entropy"].units)
+    pyn.plot.sph.image(view.snapshot.g, qty="entropy",cmap=plt.cm.jet,log=True, width="5000 kpc" )
     plt.show()
