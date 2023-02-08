@@ -89,8 +89,7 @@ if __name__ == '__main__':
     # Grabbing data
     ########################################################################################################################
     selected_ic_file = file_select(CONFIG["system"]["directories"]["initial_conditions_directory"],
-                                   lambda file: ".dat" in file or ".g2" in file,
-                                   search_for_description=False)
+                                   lambda file: ".dat" in file or ".g2" in file)
     selected_ic_path = os.path.join(CONFIG["system"]["directories"]["initial_conditions_directory"], selected_ic_file)
     os.system('cls' if os.name == 'nt' else 'clear')
     log_print("Running RAyInit with initial conditions file %s." % selected_ic_path, _dbg_string, "debug")

@@ -89,7 +89,7 @@ def rclone_listdir(directory) -> tuple:
 
 def set_simulation_information():
     return pullValues(get_options({
-        "SimulationName": ("None", "None", "The name of the simulation"),
+        "SimulationName": ("None", "None", "The name of the simulation | Simulations which already have a name cannot be renamed."),
         "Description": ("None", "None", "The description of the simulation"),
         "NMLFile": ("None", "None", "The name of the generated nml file")
     }, "Simulation Options"))
@@ -534,6 +534,96 @@ def file_select(directory: str, conditions=None, search_for_description=True):
     print("%sSelected %s." % (cdbg_string, selected_file))  # --> This cannot actually be escaped.
     return selected_file
 
+def multi_file_select(directories:list, conditions=None):
+    """
+    Allows the user to select files from a specific list based on a given directory.
+
+    Conditions can be used to set up a discrimination system.
+    :param directory: The directory, should be a string
+    :param conditions: lambda function (file), returning true to include in list.
+    :return:
+    """
+    # debug strings #
+    fdbg_string = "%sfile_select:" % _dbg_string
+    cdbg_string = fdbg_string + " [" + Fore.LIGHTGREEN_EX + Style.BRIGHT + "FILE WIZARD" + Style.RESET_ALL + "]: "
+
+    # starting #
+    print(("#" * 24) + " File Selection " + ("#" * 24))
+    for directory in directories:
+        print("#" + Fore.RED + "Directory" + Style.RESET_ALL + ": " + directory)
+
+    ### Finding valid files ###
+    files = []
+    locations = []
+    for directory in directories:
+        if conditions != None:
+            files += [file for file in os.listdir(directory) if conditions(file)]
+            locations += [directory for file in os.listdir(directory) if conditions(file)]
+        else:
+            files += os.listdir(directory)
+            locations += [directory for i in range(len(os.listdir(directory)))]
+
+    print("#" + Fore.RED + "Files" + Style.RESET_ALL + ": " + str(len(files)))
+    print("#" * 64)
+
+    ### checking for 0 length ###
+    if not len(files):
+        print("%sFailed to find any files meeting these criteria. Exiting..." % fdbg_string)
+        exit()
+
+    ### Managing descriptions ###
+    descriptions = {file:location for file,location in zip(files,locations)}  # this will hold the descriptions
+
+
+    ### print maths ###
+    max_length = np.amax([len(file) for file in files])  # grabbing the maximal length of the filename.
+    length_difference = {
+        file: (max_length + 2) - len(file) for file in files
+    }
+
+    ### selecting ###
+    selection_check = False
+    while not selection_check:
+        # We have not selected our file yet.
+        for id, file in enumerate(files):
+            # We cycle through all of the files.
+            print("[%s] %s%s|%s" % (
+                Fore.RED + Style.BRIGHT + str(id + 1) + Style.RESET_ALL,
+                Fore.BLUE + Style.BRIGHT + file + Style.RESET_ALL,
+                (" " * length_difference[file]),
+                Fore.WHITE + descriptions[file] + Style.RESET_ALL
+            ))
+        print("#" * 64)
+        tmp_input = input("%sPlease select a file: " % cdbg_string)  # selecting a file
+
+        if not tmp_input.isdigit():  # the temp input is not actually a number:
+            input("%sFailed to recognize option %s. Input should be an integer. Press any key to try again..." % (
+                cdbg_string, tmp_input))
+        else:
+            # This input was a digit we need to check it.
+            tmp_value = int(tmp_input) - 1  # grabbing the correct index value.
+
+            if 0 <= tmp_value <= len(files) - 1:  # this is a valid selection
+                selected_file = files[tmp_value]  # grab the selected file.
+                selected_location = locations[tmp_value]
+                selection_check = True
+            else:
+                input("%sInput %s is too large. Maximum value is %s. Press any key to try again..." % (
+                    cdbg_string, tmp_input, len(files)))
+
+        os.system('cls' if os.name == 'nt' else 'clear')
+
+        # Re-printing
+        if not selection_check:
+            print(("#" * 24) + " File Selection " + ("#" * 24))
+            for directory in directories:
+
+                print("#" + Fore.RED + "Directory" + Style.RESET_ALL + ": " + directory)
+
+            print("#" + Fore.RED + "Files" + Style.RESET_ALL + ": " + str(len(files)))
+            print("#" * 64)
+    print("%sSelected %s." % (cdbg_string, selected_file))  # --> This cannot actually be escaped.
+    return os.path.join(selected_location,selected_file)
 
 def generate_command_sequence(commands_dict, commands_dict_data, **kwargs):
     # Intro debugging
@@ -1160,6 +1250,5 @@ def option_menu(options, desc=None, title=None):
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename, output_type="FILE")
-    print(file_directory_select({
-        "Figures":CONFIG["system"]["directories"]["figures_directory"]
-    }))
+    print(multi_file_select([CONFIG["system"]["directories"]["RAMSES_simulations_directory"],
+                       CONFIG["system"]["directories"]["initial_conditions_directory"]]))
