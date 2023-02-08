@@ -421,7 +421,7 @@ def find_halo_center(simulation: str, nproc=1):
     # ------------------------------------------------------------------------------------------------------------------#
     # - Getting everything set up -#
     output_paths = [os.path.join(simulation_log_data["SimulationLocation"], directory) for directory in
-                    os.listdir(simulation_log_data["SimulationLocation"])]
+                    os.listdir(simulation_log_data["SimulationLocation"]) if "output" in directory]
     log_print("Found %s outputs for the simulation %s." % (len(output_paths), simulation), fdbg_string, "debug")
 
     # - Setting up the output dictionary -#
