@@ -17,7 +17,7 @@ import pynbody as pyn
 from PyCS_Analysis.plot_utils import get_color_binary_colormap
 from PyCS_Core.Logging import set_log, log_print, make_error
 from PyCS_Analysis.Analysis_Utils import get_families, align_snapshot, make_pseudo_entropy, make_mach_number, \
-    generate_xray_emissivity, SnapView
+    generate_xray_emissivity, SnapView, generate_speed_of_sound
 from PyCS_Core.PyCS_Errors import *
 import matplotlib.pyplot as plt
 from PyCS_System.SimulationMangement import SimulationLog
@@ -113,6 +113,15 @@ __quantities = {
             "log": True
         }
     },
+    "p": {
+        "unit":"N m^-2",
+        "fancy": "Pressure",
+        "families": ["gas"],
+        "default_settings": {
+            "cmap": plt.cm.inferno,
+            "log": True
+        }
+    },
     "entropy": {
         "unit": "keV cm^2",
         "fancy": "Entropy",
@@ -136,6 +145,15 @@ __quantities = {
         "families": ["gas"],
         "default_settings": {
             "cmap": plt.cm.cividis,
+            "log": True
+        }
+    },
+    "sound_speed": {
+        "unit": "km s^-1",
+        "fancy": r"c_{s,\rho}",
+        "families": ["gas"],
+        "default_settings": {
+            "cmap": plt.cm.hot,
             "log": True
         }
     }
@@ -509,6 +527,8 @@ def make_plot(snapshot,
         make_mach_number(snapshot)
     elif qty == "xray":
         generate_xray_emissivity(snapshot)
+    elif qty == "sound_speed":
+        generate_speed_of_sound(snapshot)
 
     # - building the array -#
     image_array = generate_image_array(snapshot, qty, families=families, **kwargs)
