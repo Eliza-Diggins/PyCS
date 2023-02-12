@@ -484,10 +484,7 @@ def find_halo_center(simulation: str, nproc=1):
 
         log_print("Saved center for output %s (id=%s)!" % (output_path, id), fdbg_string, "info")
 
-        # cleanup
-        # --------------------------------------------------------------------------------------------------------------#
-        del o1, o2, data_dict, bridge, snapshot
-        gc.collect()
+
 
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
