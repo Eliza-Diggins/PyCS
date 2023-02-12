@@ -16,13 +16,10 @@ from PyCS_System.text_utils import file_select, print_title
 from PyCS_System.SpecConfigs import read_RAMSES_config, write_nml, write_slurm_script
 from PyCS_Tools.run_RAMSES import issue_memory_waring
 import pathlib as pt
-import numpy as np
-import pynbody as pyn
 from datetime import datetime
 from PyCS_System.text_utils import get_options, set_simulation_information
 import time
 from PyCS_System.SimulationMangement import SimulationLog
-from colorama import Fore, Style
 import warnings
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#

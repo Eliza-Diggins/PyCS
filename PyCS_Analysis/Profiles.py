@@ -433,6 +433,8 @@ def _raw_make_profile_plot(snapshot,
     if "label" not in kwargs:
         kwargs["label"] = r"$\mathrm{%s}$"%__quantities[qty]["fancy"]
 
+    if "color" not in kwargs:
+        kwargs["color"] = "black"
     #- Checking for lambda kwargs in the kwargs and moving them -#
     if "lambda_kwargs" in kwargs:
         # We have lambda kwargs so we need to extract and remove.
@@ -442,6 +444,8 @@ def _raw_make_profile_plot(snapshot,
         # ! THERE IS NOT LAMBDA FUNCTION ! We simply pass over and move on
         lambda_kwargs = {} # This will never be used, empty to keep IDE happy.
 
+    if "color" not in lambda_kwargs:
+        lambda_kwargs["color"] = kwargs["color"]
     # Plotting
     ####################################################################################################################
     # - creating the figure -#
@@ -682,6 +686,24 @@ def make_profiles_plot(snapshot,
             quantity["q_kwargs"]["units_y"] = kwargs["units_y"]
         if "units_x" in kwargs:
             quantity["q_kwargs"]["units_x"] = kwargs["units_x"]
+
+    # SANITY CHECK
+    #------------------------------------------------------------------------------------------------------------------#
+
+    #- Are we trying to plot profiles for families that don't actually exist? -#
+    available_families = [snapfam.name for snapfam in snapshot.families()] #all of the families that are actually there!
+
+    removal_list = [] # we cannot remove id's while iterating!
+    for id,quantity in enumerate(quantities):
+        if "family" in quantity["q_kwargs"]: # There is a specified family and we now need to check its valid.
+            if quantity["q_kwargs"]["family"] not in available_families:
+                removal_list.append(id)
+            else:
+                pass
+        else:
+            pass
+    for i in removal_list:
+        del quantities[i]
 
     # Creating the figure
     ####################################################################################################################

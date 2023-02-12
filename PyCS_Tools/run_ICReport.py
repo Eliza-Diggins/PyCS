@@ -109,8 +109,7 @@ __multi_profile_config = [
           "q_kwargs": {"family": "dm",
                        "color": "black",
                        "ls": "-",
-                       "label": r"$M_{\mathrm{dm}}(<r)$",
-                       "Lambda": lambda x: x ** 3}
+                       "label": r"$M_{\mathrm{dm}}(<r)$"}
           },
          {"quantity": "mass_enc",
           "q_kwargs": {"color": "blue",
