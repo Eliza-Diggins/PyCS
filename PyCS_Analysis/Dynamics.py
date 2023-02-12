@@ -424,21 +424,17 @@ def find_halo_center(simulation: str, nproc=1):
                     os.listdir(simulation_log_data["SimulationLocation"]) if "output" in directory]
     log_print("Found %s outputs for the simulation %s." % (len(output_paths), simulation), fdbg_string, "debug")
 
-    # - Setting up the output dictionary -#
-    output_dict = {
-        "OutputNumber": [],
-        "Time": [],
-        "H1_x": [],
-        "H1_y": [],
-        "H1_z": [],
-        "H2_x": [],
-        "H2_y": [],
-        "H2_z": []
-    }
+    # Generating the dataset files
+    #------------------------------------------------------------------------------------------------------------------#
+    #- Creating the directory if necessary -#
+    if not os.path.exists(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation)):
+        pt.Path(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation)).mkdir(parents=True)
+        simlog.log[simulation_log_key]["DatasetsLocation"] = os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation)
+        simlog._write()
 
     # MAIN
     # ------------------------------------------------------------------------------------------------------------------#
-    for output_path in output_paths:  # Cycle through each output
+    for id,output_path in enumerate(output_paths):  # Cycle through each output
         # LOADING THE OUTPUT
         # --------------------------------------------------------------------------------------------------------------#
         log_print("Attempting to get halo COM from output at %s." % output_path, fdbg_string, "debug")
@@ -474,24 +470,24 @@ def find_halo_center(simulation: str, nproc=1):
             "H2_z": [c2[2]]
         }
 
-        output_dict = {key: value + data_dict[key] for key, value in output_dict.items()}
+        # saving
+        #--------------------------------------------------------------------------------------------------------------#
+        log_print("Saving center for output %s (id=%s)..."%(output_path,id),fdbg_string,"debug")
+        if id != 0:
+            # load the dataset from file
+            current_dataset = pd.read_csv(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation,"Centers.csv"))
+            current_dataset = current_dataset.append(pd.DataFrame(data_dict),ignore_index=True)
+
+            current_dataset.to_csv(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation,"Centers.csv"),index=False)
+        else:
+            pd.DataFrame(data_dict).to_csv(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation,"Centers.csv"),index=False)
+
+        log_print("Saved center for output %s (id=%s)!" % (output_path, id), fdbg_string, "info")
 
         # cleanup
         # --------------------------------------------------------------------------------------------------------------#
         del o1, o2, data_dict, bridge, snapshot
         gc.collect()
-
-    # Generating the dataset files
-    #------------------------------------------------------------------------------------------------------------------#
-    #- Creating the directory if necessary -#
-    if not os.path.exists(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation)):
-        pt.Path(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation)).mkdir(parents=True)
-        simlog.log[simulation_log_key]["DatasetsLocation"] = os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation)
-        simlog._write()
-
-    #- saving the data -#
-    oframe = pd.DataFrame(output_dict)
-    oframe.to_csv(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation,"halo_center.csv"))
 
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
