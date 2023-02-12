@@ -253,6 +253,9 @@ def write_nml(nml_settings: dict, output_location: str = CONFIG["system"]["direc
 
     # GENERATING THE NML FILE
     ####################################################################################################################
+    if not os.path.exists(output_location):
+        pt.Path(output_location).mkdir(parents=True)
+
     with open(os.path.join(output_location, name), "w+") as file:  # Creating the file.
         file.write("#!fortran\n")
         # Writing the nml file #

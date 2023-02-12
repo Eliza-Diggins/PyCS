@@ -446,7 +446,11 @@ def make_mach_number(snapshot):
     ####################################################################################################################
     snapshot.g["mach"] = np.sqrt((snapshot.g["rho"] * snapshot.g["v2"]) / ((5 / 3) * snapshot.g["p"]))
 
+def generate_speed_of_sound(snapshot):
+    fdbg_string = "%sgenerate_speed_of_sound: " % _dbg_string
+    log_print("Attempting to generate mach number array for %s." % snapshot, fdbg_string, "debug")
 
+    snapshot.g["sound_speed"] =np.sqrt(((5 / 3) * snapshot.g["p"])/(snapshot.g["rho"]))
 def generate_xray_emissivity(snapshot) -> None:
     """
     Generates the x-ray emissivity associated with the given snapshot.
