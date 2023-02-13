@@ -5,19 +5,28 @@
 """
 import os
 import pathlib as pt
+import shutil
 import sys
 
 import pandas as pd
+import scipy.ndimage
 
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
+
+import matplotlib.pyplot as plt
 from PyCS_Core.Configuration import read_config, _configuration_path
 import pynbody as pyn
+from itertools import repeat
+from utils import split
 from PyCS_Core.Logging import log_print, make_error, set_log
 from PyCS_System.SimulationMangement import SimulationLog, ICLog
 from PyCS_Analysis.Analysis_Utils import align_snapshot
+from PyCS_Analysis.Images import generate_image_array
 import toml
+from datetime import datetime
+from multiprocessing import current_process
+from concurrent.futures import ProcessPoolExecutor
 import numpy as np
-import gc
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Setup ----------------------------------------------------------#
@@ -350,141 +359,209 @@ the ``self.dm`` object which comes from the first snapshot and the DM from the s
 
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+# ------------------------------------------------- Sub-Functions -------------------------------------------------------#
+# --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
+def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, footprint, ncores):
+    """
+    Multi-processing find center procedure.
+    Parameters
+    ----------
+    output_paths: (``list``): The list of *absolute paths* to the outputs to be computed.
+    temp_directory: (``str``): The location in which to save the temp files.
+
+    Returns: None
+    -------
+
+    """
+    # DEBUGGING
+    # ---------------------------------------------------------------------------------------------------------------- #
+    fdbg_string = "%smp_get_centers: " % _dbg_string
+    log_print("Attempting to get centers of %s snaps on process %s." % (len(output_paths), current_process().name),
+              fdbg_string, "info")
+
+    if not width:
+        no_width = True
+    else:
+        no_width = False
+
+    # COMPUTING
+    # ---------------------------------------------------------------------------------------------------------------- #
+    for id, output_path in enumerate(output_paths):  # cycle through all of the output paths for this case.
+        log_print("Finding center of %s on %s." % (output_path, current_process().name), fdbg_string, "debug")
+
+        # Opening the simulation and proceeding with typical alignment procedures
+        # ------------------------------------------------------------------------------------------------------------ #
+        snap = pyn.load(output_path)
+        align_snapshot(snap)
+
+        if no_width:
+            width = snap.properties["boxsize"] / 8
+        # Generating the image array
+        # ------------------------------------------------------------------------------------------------------------ #
+        image_array = generate_image_array(snap, "rho", families=["dm"], width=width, resolution=resolution)
+
+        # - Image manipulations - #
+        image_array = np.log10(image_array)  # reduce to a logarithm for easier processing.
+
+        # grabbing maxima
+        tmp_max = (image_array == scipy.ndimage.maximum_filter(image_array, footprint, mode="constant", cval=0))
+
+        densities = sorted([image_array[tuple(j)] for j in np.argwhere(tmp_max == True)], reverse=True)[:ncores]
+
+        cores = [np.argwhere(image_array == d)[0] for d in densities]
+
+        log_print("Located %s maximal cores as %s in array coordinates." % (ncores, cores), fdbg_string, "debug")
+
+        # - Unit test dump management -#
+        if CONFIG["system"]["system_testing_debug"]:
+            fig = plt.figure()
+            ax1 = fig.add_subplot(111)
+            ax1.imshow(image_array, origin="lower")
+            ax1.plot([i[1] for i in cores], [i[0] for i in cores], "ro")
+            plt.savefig(os.path.join(CONFIG["system"]["directories"]["unit_test_dump"], "DMPS_get_center_%s_%s.png" % (
+            pt.Path(output_path).name, datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))))
+
+            del ax1,fig
+
+        # Analysis
+        # ------------------------------------------------------------------------------------------------------------ #
+        # grabbing positions
+        x, y = np.meshgrid(np.linspace(-width.in_units("kpc") / 2, width.in_units("kpc") / 2, resolution),
+                           np.linspace(-width.in_units("kpc") / 2, width.in_units("kpc") / 2, resolution))
+
+        true_x, true_y = [x[c[0], c[1]] for c in cores], [y[c[0], c[1]] for c in cores]
+
+        # Writing the data
+        # ------------------------------------------------------------------------------------------------------------ #
+        output_frame = pd.DataFrame({
+            "Time": [snap.properties['time'] for i in true_x],
+            "rank": [i + 1 for i in range(len(true_x))],
+            "x_val": true_x,
+            "y_val": true_y,
+            "z_val": [0] * ncores
+        })
+
+        # - Writing - #
+        output_frame.to_csv(os.path.join(temp_directory, "%s.csv" % pt.Path(output_path).name))
+        log_print("Finished %s on %s." % (output_path, current_process().name), fdbg_string, "debug")
+
+        log_print("Finished centers of %s snaps on process %s." % (len(output_paths), current_process().name),
+                  fdbg_string, "info")
+
+
+# --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Functions -------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
-def find_halo_center(simulation: str, nproc=1):
+def get_centers(simulation: str,
+                resolution: int = 1000,
+                width=None,
+                footprint: int = 20,
+                ncores: int = 2,
+                nproc: int = 1) -> None:
     """
-    Locates the centers of mass for each of the halos present in the simulation.
+    Finds the dark matter halo centers of the given simulation. This can be used to track any number of halos through
+    the simulation using the parameter ``ncores``, which controls the number of maxima that we search for in the processing.
 
-    **Process**:
-
-    1. We first check the simulation log (``SimLog``) for the entry with ``SimulationName==simulation``.
-
-    2. Once that process has been completed, we check for the type of the ICs. If the IC is not binary, then nothing is done and a warning is raised.
-
-    3. If the simulation is binary, we build a ``HaloBridge`` object and then search through each snapshot to find the COM.
 
     Parameters
 
     ----------
 
-    simulation: The simulation name for the simulation that is being analyzed.
-    nproc: The number of processors to use.
+    simulation: (``str``) The ``SimulationName`` that you want to process.
 
-    Returns: None
+    resolution: (``int``) The resolution of the image we are going to use to determine the correct value.
+
+    width: (``pyn.units.CompositeUnit``): The desired width of the image used for the co-location process.
+
+    footprint: (``int``) The interpolation footprint size. Larger values are less coarse.
+
+    ncores: (``int``) The number of peaks that the algorithm will locate and the resulting number of data points.
+
+    nproc: (``int``) The number of processes to use in the computation.
+
+    Returns: None.
 
     -------
 
     """
-    # Logging
-    # ------------------------------------------------------------------------------------------------------------------#
-    fdbg_string = "%sfind_halo_center: " % _dbg_string
-    log_print("Attempting to find COMs for simulation %s." % simulation, fdbg_string, "debug")
+    # DEBUGGING
+    # ---------------------------------------------------------------------------------------------------------------- #
+    fdbg_string = "%sget_centers: " % _dbg_string
+    log_print("Attempting to fetch centers for the simulation %s." % simulation, fdbg_string, "debug")
 
-    # SETUP
-    # ------------------------------------------------------------------------------------------------------------------#
-    # - Grabbing the simulation data from the SimLog -#
+    # SANITIZING INPUT AND LOCATING THE SIMULATION
+    # ---------------------------------------------------------------------------------------------------------------- #
+    # - Finding the simulation data from the name -#
     try:
-        simulation_log_key = simlog._keys_from_name(simulation)[0]
-        simulation_log_data = simlog[simulation_log_key]
+        simulation_key = simlog._keys_from_name(simulation)[0]
+        log_print("Determined that %s <-> %s." % (simulation_key, simulation), fdbg_string, "debug")
     except IndexError:
-        make_error(IndexError, fdbg_string,
-                   "The simulation with SimulationName=%s was not found in default simlog." % simulation)
+        make_error(ValueError, fdbg_string,
+                   "The simulation %s couldn't be found in the loaded Simlog. Please check the configuration." % simulation)
         return None
 
-    # - Checking on the IC type -#
-    try:
-        ic_type = iclog[simulation_log_data["ICFile"]]["type"]
-    except KeyError:
-        make_error(KeyError, fdbg_string,
-                   "Failed to find the matching ICLog entry for %s." % simulation_log_data["ICFile"])
+    # - Finding the corresponding output directory and loading a list of outputs. -#
+    output_directories = [os.path.join(simlog[simulation_key]["SimulationLocation"], directory) for directory in
+                          os.listdir(simlog[simulation_key]["SimulationLocation"]) if
+                          "output" in directory]
+
+    if not len(output_directories):  # The outputs are empty
+        log_print("Failed to find any output files for this simulation. Exiting.", fdbg_string, "debug")
         return None
 
-    ##- Checking the type -##
-    if ic_type != "cluster-binary":
-        log_print("The simulation %s is not a binary cluster, it is a %s. Exiting..." % (simulation, ic_type),
-                  fdbg_string, "warning")
-        return None
+    # Managing the dataset's directory
+    # ------------------------------------------------------------------------------------------------------------------#
+    tmp_output_directory = os.path.join(CONFIG["system"]["directories"]["temp_directory"],
+                                        "Dyn_%s_%s" % (simulation, datetime.now().strftime('%m-%d-%Y_%H-%M-%S')))
 
-    # - Creating the bridge object -#
-    hbridge = HaloBridge(simulation)  # Creating the halo bridge
+    if os.path.exists(tmp_output_directory):
+        shutil.rmtree(tmp_output_directory)
+        pt.Path(tmp_output_directory).mkdir(parents=True)
+    else:
+        pt.Path(tmp_output_directory).mkdir(parents=True)
 
-    # ------------------------------------------------------------------------------------------------------------------#
-    #                                                    Processing                                                    #
-    # ------------------------------------------------------------------------------------------------------------------#
-    #   TODO: Add multiprocessing ---> This probably requires some precession with pickling.
-    #   1. Locate all of the outputs and cycle through each one.
-    #   2. Generate a smoothed DM map and then filter through each of the DM filters in the halo bridge.
-    #   3. Find the maximal point and mark it.
-    # ------------------------------------------------------------------------------------------------------------------#
-    # SETUP
-    # ------------------------------------------------------------------------------------------------------------------#
-    # - Getting everything set up -#
-    output_paths = [os.path.join(simulation_log_data["SimulationLocation"], directory) for directory in
-                    os.listdir(simulation_log_data["SimulationLocation"]) if "output" in directory]
-    log_print("Found %s outputs for the simulation %s." % (len(output_paths), simulation), fdbg_string, "debug")
+    # ---------------------------------------------------------------------------------------------------------------- #
+    #                                                                                                                  #
+    #                                            Performing the computations                                           #
+    #                                                                                                                  #
+    # ---------------------------------------------------------------------------------------------------------------- #
+    # - Fixing the number of processors -#
+    nproc = np.amin([len(output_directories), nproc])  # Prevents empty processes.
 
-    # Generating the dataset files
-    #------------------------------------------------------------------------------------------------------------------#
-    #- Creating the directory if necessary -#
-    if not os.path.exists(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation)):
-        pt.Path(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation)).mkdir(parents=True)
-        simlog.log[simulation_log_key]["DatasetsLocation"] = os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation)
-        simlog._write()
+    if nproc > 1:
+        ## We are using multiprocessing ##
 
-    # MAIN
-    # ------------------------------------------------------------------------------------------------------------------#
-    for id,output_path in enumerate(output_paths):  # Cycle through each output
-        # LOADING THE OUTPUT
+        # Managing partition
         # --------------------------------------------------------------------------------------------------------------#
-        log_print("Attempting to get halo COM from output at %s." % output_path, fdbg_string, "debug")
+        simulation_partition = split(output_directories, nproc)
 
-        # - loading
-        snapshot = pyn.load(output_path)  # load the snapshot
-        align_snapshot(snapshot)  # aligning
-
-        # - Creating necessary arrays -#
-        snapshot.dm["smooth"] = pyn.sph.smooth(snapshot.dm)
-        snapshot.dm["rho"] = pyn.sph.rho(snapshot.dm)
-
-        # - Creating the bridge object -#
-        bridge = hbridge.get_bridge(snapshot)
-
-        # Finding the COMs
+        # Passing to the process pool
         # --------------------------------------------------------------------------------------------------------------#
-        o1, o2 = bridge(hbridge.dm[hbridge.filters[0]]), bridge(
-            hbridge.dm[hbridge.filters[1]])  # Transport the centers to the new snapshot.
+        with ProcessPoolExecutor() as executor:
+            executor.map(mp_get_centers,
+                         simulation_partition,
+                         repeat(tmp_output_directory),
+                         repeat(resolution),
+                         repeat(width),
+                         repeat(footprint),
+                         repeat(ncores))
+    else:
+        ## Single Process implementation ##
+        mp_get_centers(output_directories, tmp_output_directory, resolution, width, footprint, ncores)
 
-        # - Finding the centers -#
-        c1, c2 = o1[np.where(o1["rho"] == np.amax(o1["rho"]))]["pos"].in_units(CONFIG["units"]["default_length_unit"])[0], \
-                 o2[np.where(o2["rho"] == np.amax(o2["rho"]))]["pos"].in_units(CONFIG["units"]["default_length_unit"])[0]
+    # Joining into database
+    # ------------------------------------------------------------------------------------------------------------------#
+    full_frame = pd.DataFrame({})  # this will be populated with the correct frame
 
-        data_dict = {
-            "OutputNumber": [str(pt.Path(output_path).name).replace("output_", "")],
-            "Time": [snapshot.properties['time'].in_units(CONFIG["units"]["default_time_unit"])],
-            "H1_x": [c1[0]],
-            "H1_y": [c1[1]],
-            "H1_z": [c1[2]],
-            "H2_x": [c2[0]],
-            "H2_y": [c2[1]],
-            "H2_z": [c2[2]]
-        }
+    for file in os.listdir(tmp_output_directory):
+        tmp_frame = pd.read_csv(os.path.join(tmp_output_directory, file))
 
-        # saving
-        #--------------------------------------------------------------------------------------------------------------#
-        log_print("Saving center for output %s (id=%s)..."%(output_path,id),fdbg_string,"debug")
-        if id != 0:
-            # load the dataset from file
-            current_dataset = pd.read_csv(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation,"Centers.csv"))
-            current_dataset = current_dataset.append(pd.DataFrame(data_dict),ignore_index=True)
+        full_frame = full_frame.append(tmp_frame, ignore_index=True)
 
-            current_dataset.to_csv(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation,"Centers.csv"),index=False)
-        else:
-            pd.DataFrame(data_dict).to_csv(os.path.join(CONFIG["system"]["directories"]["datasets_directory"],simulation,"Centers.csv"),index=False)
-
-        log_print("Saved center for output %s (id=%s)!" % (output_path, id), fdbg_string, "info")
-
-
+    if not os.path.exists(os.path.join(CONFIG["system"]["directories"]["datasets_directory"], simulation)):
+        pt.Path(os.path.join(CONFIG["system"]["directories"]["datasets_directory"], simulation)).mkdir(parents=True)
+    full_frame.to_csv(os.path.join(CONFIG["system"]["directories"]["datasets_directory"], simulation, "centers.csv"),index=False)
+    shutil.rmtree(tmp_output_directory)
 
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -493,4 +570,4 @@ def find_halo_center(simulation: str, nproc=1):
 if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT")
     # Making the bridge object
-    print(find_halo_center("ColTest", nproc=1))
+    get_centers("TestSim")

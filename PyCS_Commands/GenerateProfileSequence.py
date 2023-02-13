@@ -58,6 +58,7 @@ if __name__ == '__main__':
     parser.add_argument("-rmax","--rmax",help="The maximum radius to look at.",default=None)
     parser.add_argument("-f", "--family", help="The family to include.", default=None)
     parser.add_argument("-L","--lambdafunc",help="The lambda function to include in the plot.",default=None)
+    parser.add_argument("-lp","--line_profile",help="Mark to use a linear profile!",default=False,action="store_true")
     #- units -#
     parser.add_argument("-ux","--units_x",help="The x-units",default=None)
     parser.add_argument("-uy", "--units_y", help="The y-units", default=None)
@@ -176,7 +177,8 @@ if __name__ == '__main__':
         "lambda_kwargs":lambda_kwargs,
         "Lambda_label":args.L_label,
         "ylims": ylims,
-        "view_kwargs":view_params
+        "view_kwargs":view_params,
+        "mode":("line" if args.line_profile else "shell")
     }
 
     kwargs = {key: value for key, value in removable_kwargs.items() if value != None}

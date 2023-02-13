@@ -449,13 +449,13 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
 
     for family in families:
         ### Cycle through each family and generate the image array.
-        # try:
-        output_array += pyn.plot.sph.image(snapshot[family], qty=qty, noplot=True, **kwargs, threaded=False)
-        log_print("Plotted family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
+        try:
+            output_array += pyn.plot.sph.image(snapshot[family], qty=qty, noplot=True, **kwargs, threaded=False)
+            log_print("Plotted family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
                   fdbg_string, "info")
-        # except Exception:
-        #    log_print("Failed to plot family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
-        #              fdbg_string, "error")
+        except Exception:
+            log_print("Failed to plot family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
+                      fdbg_string, "error")
 
     # RETURNING
     ########################################################################################################################
