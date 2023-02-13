@@ -409,7 +409,6 @@ def _raw_make_line_profile_plot(snapshot,
     #------------------------------------------------------------------------------------------------------------------#
     #- Setting base points -#
     p0, p1 = ((_prof_kwargs["resolution"]/2,_prof_kwargs["resolution"]/2),(_prof_kwargs["resolution"]-1,_prof_kwargs["resolution"]/2)) # these are the location points for the profile (pixel units)
-    print(p0,p1)
     num = _prof_kwargs["nsamples"] # the number of sample points.
     snapx,snapy = np.linspace(p0[0],p1[0],num),np.linspace(p0[1],p1[1],num)
     #- Setting proper coordinates -#
@@ -417,6 +416,7 @@ def _raw_make_line_profile_plot(snapshot,
     #y = pyn.array.SimArray(scipy.ndimage.map_coordinates(image_array,np.vstack((snapx,snapy)),mode='nearest'),pyn.units.Unit(z_units))
     y = pyn.array.SimArray(image_array[snapy.astype(np.int), snapx.astype(np.int)])
     x = pyn.array.SimArray(np.linspace(_prof_kwargs["rmin"].in_units(w_units),_prof_kwargs["rmax"].in_units(w_units),num),w_units)
+
 
     # Setting up plotting
     #------------------------------------------------------------------------------------------------------------------#
