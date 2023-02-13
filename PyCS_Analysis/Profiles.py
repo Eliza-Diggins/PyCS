@@ -9,6 +9,8 @@ import os
 import pathlib as pt
 import sys
 
+import scipy.ndimage
+
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 from PyCS_Core.Configuration import read_config, _configuration_path
 import pynbody as pyn
@@ -22,6 +24,7 @@ from PyCS_System.SimulationMangement import SimulationLog
 from PyCS_Analysis.builtin_functions import hydrostatic_mass
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
+from PyCS_Analysis.Images import generate_image_array,set_units
 import numpy as np
 from utils import split
 
@@ -65,6 +68,12 @@ __pynbody_profile_defaults = {
     "rmin": None,
     "rmax": None
 }  # Kwargs to pass through pyn.analysis.profile.Profile
+__pynbody_line_profile_defaults = {
+    "nsamples": CONFIG["analysis"]["profiles"]["linear"]["default_n_samples"],
+    "rmin": CONFIG["analysis"]["profiles"]["linear"]["default_rmin"],
+    "rmax": CONFIG["analysis"]["profiles"]["linear"]["default_rmax"],
+    "resolution": CONFIG["analysis"]["profiles"]["linear"]["default_sample_resolution"]
+}
 
 # ---# QUANTITY SPECIFIC DEFAULTS #-------------------------------------------------------------------------------------#
 #   These dictionaries carry kwargs specific to each quantity that gets passed into either the profiles or
@@ -282,6 +291,208 @@ def mp_make_profile(arg):
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # Functions for generating profiles
 # ----------------------------------------------------------------------------------------------------------------------#
+def _raw_make_line_profile_plot(snapshot,
+                           qty,
+                           Lambda=None,
+                           Lambda_label=None,
+                           axes=None,
+                           **kwargs):
+    """
+    Generates a linear profile for the given ``snapshot`` of the specified quantity ``qty``.
+
+    **Process**:
+
+    1. At this point, the ``snapshot`` should **ALREADY BE ROTATED** such that the prefered direction is the ``x`` axis
+    of the resulting snapshot. This is done in the previous stages.
+
+    2. We begin by fetching ``rmin`` and ``rmax`` and ``n_sample`` from ``**kwargs``. If any of these are not found, we grab the
+    default values from ``CONFIG``.
+
+    3. The data from step 2 is used to generate the ``image`` array and the image array is then sampled such that
+    we obtain the desired profile. We then use the correct sampling proceedure to match ``logx`` if necessary.
+
+    4. The sampled data is then returned and further post-processing occurs.
+
+
+
+    Parameters
+    ----------
+    snapshot: (None) ``pyn.snapshot.SimSnap`` object which is pre-oriented such that the correct direction is x-axis.
+    qty: (``str``) The quantity to plot.
+    Lambda: (``lambda function``) The associated lambda function to plot in addition.
+    Lambda_label: Label for the lambda function.
+    axes: The axes onto which to add this plot.
+    kwargs: additional kwargs.
+
+    Returns: ``[axes,x,y]``.
+    -------
+
+    """
+    fdbg_string = "%s_raw_make_line_profile_plot: " % _dbg_string
+    log_print("Generating %s profile plot for snapshot %s." % (qty, snapshot), fdbg_string, "debug")
+
+    # Managing required kwargs for the plot management.
+    #------------------------------------------------------------------------------------------------------------------#
+    _prof_kwargs = {}  # these are the kwargs we will pass in
+    for key, value in __pynbody_line_profile_defaults.items():
+        if key in kwargs:  # the user included it in their list.
+            _prof_kwargs[key] = kwargs[key]
+            del kwargs[key]
+        else:  # not included in the inputted kwargs. We check for None, then add.
+            if value != None:
+                _prof_kwargs[key] = value
+            else:  # These were set to nonetype anyways.
+                pass
+
+    #- removing potential hidden overlap settings -#
+    removed_keys = [key for key in list(__pynbody_profile_defaults.keys()) + ["profile"] if (key not in __pynbody_line_profile_defaults) and (key in kwargs)]
+
+    for key in removed_keys:
+        del kwargs[key]
+
+
+
+    # Type Coercion #
+    for key in ["rmin","rmax"]:
+        if isinstance(_prof_kwargs[key],(float,int)):
+            _prof_kwargs[key] = _prof_kwargs[key] * snapshot["pos"].units
+        elif isinstance(_prof_kwargs[key],str):
+            _prof_kwargs[key] = pyn.units.Unit(_prof_kwargs[key])
+        else:
+            pass
+    # Deriving arrays if necessary
+    # ------------------------------------------------------------------------------------------------------------------#
+    ##- deriving arrays -##
+    if qty == "entropy":
+        make_pseudo_entropy(snapshot)
+    elif qty == "mach":
+        make_mach_number(snapshot)
+    elif qty == "xray":
+        generate_xray_emissivity(snapshot)
+
+    # Creating the base image
+    #------------------------------------------------------------------------------------------------------------------#
+
+    #- Managing necessary kwargs -#
+    image_kwargs = {} # we eventually push these to the generate image stage.
+
+    ##- managing units -##
+    if "units_y" in kwargs:
+        image_kwargs["units"] = kwargs["units_y"]
+        z_units = kwargs["units_y"] # grab for future use!
+        del kwargs["units_y"] # remove from kwargs.
+    else:
+        z_units = str(set_units(qty,ndim=3))
+
+    if "units_x" in kwargs:
+        w_units = kwargs["units_x"]
+        del kwargs["units_x"]
+    else:
+        w_units = CONFIG["units"]["default_length_unit"]
+    ##- managing width -##
+    image_kwargs["width"] = 2*_prof_kwargs["rmax"].in_units(snapshot["pos"].units)
+
+    ##- managing resolution -##
+    image_kwargs["resolution"] = _prof_kwargs["resolution"]
+
+    ##- managing families -##
+    if not "family" in kwargs:
+        image_kwargs["families"] = None
+    else:
+        image_kwargs["families"]= kwargs["family"]
+        del kwargs["family"]
+
+    #- GENERATING THE IMAGE ARRAY -#
+
+    image_array = generate_image_array(snapshot,qty=qty,**image_kwargs)
+    # Image Analysis
+    #------------------------------------------------------------------------------------------------------------------#
+    #- Setting base points -#
+    p0, p1 = ((_prof_kwargs["resolution"]/2,_prof_kwargs["resolution"]/2),(_prof_kwargs["resolution"]-1,_prof_kwargs["resolution"]/2)) # these are the location points for the profile (pixel units)
+    print(p0,p1)
+    num = _prof_kwargs["nsamples"] # the number of sample points.
+    snapx,snapy = np.linspace(p0[0],p1[0],num),np.linspace(p0[1],p1[1],num)
+    #- Setting proper coordinates -#
+    #TODO: Why doesn't the case below work?
+    #y = pyn.array.SimArray(scipy.ndimage.map_coordinates(image_array,np.vstack((snapx,snapy)),mode='nearest'),pyn.units.Unit(z_units))
+    y = pyn.array.SimArray(image_array[snapy.astype(np.int), snapx.astype(np.int)])
+    x = pyn.array.SimArray(np.linspace(_prof_kwargs["rmin"].in_units(w_units),_prof_kwargs["rmax"].in_units(w_units),num),w_units)
+
+    # Setting up plotting
+    #------------------------------------------------------------------------------------------------------------------#
+    # - grabbing kwargs -#
+    # -- getting x-log information --#
+    if "logx" in kwargs and kwargs["logx"] == True:
+        logx = True
+        del kwargs["logx"]
+    elif "logx" in kwargs:
+        logx = False
+        del kwargs["logx"]
+    else:
+        logx = False
+
+    # -- getting y-log information --#
+    if "logy" in kwargs and kwargs["logy"] == True:
+        logy = True
+        del kwargs["logy"]
+    elif "logy" in kwargs:
+        logy = False
+        del kwargs["logy"]
+    else:
+        logy = False
+
+    if "label" not in kwargs:
+        kwargs["label"] = r"$\mathrm{%s}$" % __quantities[qty]["fancy"]
+
+    if "color" not in kwargs:
+        kwargs["color"] = "black"
+    # - Checking for lambda kwargs in the kwargs and moving them -#
+    if "lambda_kwargs" in kwargs:
+        # We have lambda kwargs so we need to extract and remove.
+        lambda_kwargs = kwargs["lambda_kwargs"]
+        del kwargs["lambda_kwargs"]
+    else:
+        # ! THERE IS NOT LAMBDA FUNCTION ! We simply pass over and move on
+        lambda_kwargs = {}  # This will never be used, empty to keep IDE happy.
+
+    if "color" not in lambda_kwargs:
+        lambda_kwargs["color"] = kwargs["color"]
+    # Plotting
+    ####################################################################################################################
+    # - creating the figure -#
+    if not axes:
+        fig = plt.figure(figsize=tuple(CONFIG["Visualization"]["default_figure_size"]))
+        axes = fig.add_subplot(111)
+
+    # - Finding plotting function -#
+    if logx and logy:
+        plt_func = axes.loglog
+    elif logx:
+        plt_func = axes.semilogx
+    elif logy:
+        plt_func = axes.semilogy
+    else:
+        plt_func = axes.plot
+
+    # - creating the actual plot -#
+    plt_func(x, y, **kwargs)
+
+    ##-managing the lambda function -##
+    if Lambda != None:  # there is a lambda function
+        if isinstance(Lambda, str):
+            # This lambda function is actually a string, so we check for built-in options
+            if Lambda in ["HSE", "hse"]:
+                Lambda = hydrostatic_mass(snapshot, independent_unit=x.units, dependent_unit=y.units)
+            else:
+                make_error(ValueError, fdbg_string, "Lambda present %s is not valid." % Lambda)
+                return None
+
+        # Dealing with the key word args
+        plt_func(x, Lambda(x), label=(Lambda_label if Lambda_label else ""), **lambda_kwargs)
+
+    # Returning
+    ####################################################################################################################
+    return [axes, x, y]
 def _raw_make_profile_plot(snapshot,
                            qty,
                            Lambda=None,
@@ -336,6 +547,12 @@ def _raw_make_profile_plot(snapshot,
             else:  # These were set to nonetype anyways.
                 pass
 
+    # - removing potential hidden overlap settings -#
+    removed_keys = [key for key in __pynbody_line_profile_defaults if
+                    (key not in __pynbody_profile_defaults) and (key in kwargs)]
+
+    for key in removed_keys:
+        del kwargs[key]
     # Deriving arrays
     #------------------------------------------------------------------------------------------------------------------#
     ##- deriving arrays -##
@@ -489,6 +706,7 @@ def make_profile_plot(snapshot,
                       Lambda=None,
                       Lambda_label=None,
                       profile=None,
+                      mode="shell",
                       save=CONFIG["Visualization"]["default_figure_save"],
                       end_file=CONFIG["system"]["directories"]["figures_directory"],
                       time_units=pyn.units.Unit(CONFIG["units"]["default_time_unit"]),
@@ -509,6 +727,8 @@ def make_profile_plot(snapshot,
     Lambda_label: (*optional*) The label to assign to the ``Lambda`` input.
 
     save: True to save, False to show.
+
+    mode: (``shells`` or ``line``) produce either a shell map or a line map.
 
     end_file: The filename and path to which the figure should be saved.
 
@@ -566,8 +786,14 @@ def make_profile_plot(snapshot,
     axes = fig.add_subplot(111)
 
     # - Generating the plot on the axes.
-    data = _raw_make_profile_plot(snapshot, qty, Lambda=Lambda, Lambda_label=Lambda_label, profile=profile, axes=axes,
+    if mode == "shell":
+        data = _raw_make_profile_plot(snapshot, qty, Lambda=Lambda, Lambda_label=Lambda_label, profile=profile, axes=axes,
                                   **kwargs)
+    elif mode == "line":
+        data = _raw_make_line_profile_plot(snapshot, qty, Lambda=Lambda, Lambda_label=Lambda_label, profile=profile, axes=axes,
+                                  **kwargs)
+    else:
+        make_error(ValueError,fdbg_string,"parameter `mode` must have value 'shell' or 'line', had %s."%mode)
 
     # - pulling important info out of data -#
     x, y = tuple(data[1:])
@@ -618,6 +844,7 @@ def make_profile_plot(snapshot,
 def make_profiles_plot(snapshot,
                        quantities: list,
                        profile=None,
+                       mode="shell",
                        save=CONFIG["Visualization"]["default_figure_save"],
                        end_file=CONFIG["system"]["directories"]["figures_directory"],
                        **kwargs):
@@ -712,10 +939,19 @@ def make_profiles_plot(snapshot,
 
     # - Generating the plot on the axes.
     for quantity in quantities:
-        data = _raw_make_profile_plot(snapshot,
+        if mode == "shell":
+            data = _raw_make_profile_plot(snapshot,
                                       quantity["quantity"],
                                       profile=profile,
                                       axes=axes, **quantity["q_kwargs"])
+        elif mode == "line":
+            data = _raw_make_line_profile_plot(snapshot,
+                                      quantity["quantity"],
+                                      profile=profile,
+                                      axes=axes, **quantity["q_kwargs"])
+        else:
+            make_error(ValueError, fdbg_string, "parameter `mode` must have value 'shell' or 'line', had %s." % mode)
+
 
     # - pulling important info out of data -#
     x, y = tuple(data[1:])
@@ -848,4 +1084,5 @@ if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT", level=10)
     data = pyn.load("/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500")
     align_snapshot(data)
-    make_profile_plot(data, "temp", save=False, color="red")
+    _raw_make_line_profile_plot(data,"temp",rmax="1000 kpc")
+
