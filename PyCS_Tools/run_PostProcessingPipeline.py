@@ -43,6 +43,10 @@ commands_dict = {
         "options": {
             "-sim": ("", "", "The simulation name to use. Only one of -sim / -simdir is needed."),
             "-simdir": ("", "", "The simulation directory."),
+            "-r":("","","Resolution"),
+            "-w":("","","width"),
+            "-f":("10","10","footprint size (int)"),
+            "-nc":("2","2","Number of halos to find."),
             "-o": ("", "", "The logging output."),
             "-l": ("", "", "The debugging level."),
             "-np": ("$SLURM_NTASKS", "$SLURM_NTASKS", "The number of processors to use.")
@@ -257,6 +261,10 @@ commands_dict_data = {
         "options": {
             "-sim": "s",
             "-simdir": "s",
+            "-r": "i",
+            "-w": "s",
+            "-f": "i",
+            "-nc": "i",
             "-o": "s",
             "-l": "s",
             "-np": "i"

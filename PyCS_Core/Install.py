@@ -116,6 +116,10 @@ install_files = {"files": {
     "Datasets": {
         "files":None,
         "setting_name": "datasets_directory"
+    },
+    "DUMPS": {
+        "files": None,
+        "setting_name": "unit_test_dump"
     }
 }
 }
