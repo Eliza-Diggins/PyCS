@@ -452,7 +452,7 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         output_frame.to_csv(os.path.join(temp_directory, "%s.csv" % pt.Path(output_path).name))
         log_print("Finished %s on %s." % (output_path, current_process().name), fdbg_string, "debug")
 
-        log_print("Finished centers of %s snaps on process %s." % (len(output_paths), current_process().name),
+    log_print("Finished centers of %s snaps on process %s." % (len(output_paths), current_process().name),
                   fdbg_string, "info")
 
 
