@@ -16,6 +16,7 @@ sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 import matplotlib.pyplot as plt
 from PyCS_Core.Configuration import read_config, _configuration_path
 import pynbody as pyn
+import gc
 from itertools import repeat
 from utils import split
 from PyCS_Core.Logging import log_print, make_error, set_log
@@ -393,13 +394,16 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         # ------------------------------------------------------------------------------------------------------------ #
         snap = pyn.load(output_path)
         align_snapshot(snap)
-
+        time = snap.properties["time"].in_units("Gyr")
         if no_width:
             width = snap.properties["boxsize"] / 8
         # Generating the image array
         # ------------------------------------------------------------------------------------------------------------ #
         image_array = generate_image_array(snap, "rho", families=["dm"], width=width, resolution=resolution)
 
+        #- Gabage collection -#
+        del snap
+        gc.collect()
         # - Image manipulations - #
         image_array = np.log10(image_array)  # reduce to a logarithm for easier processing.
 
@@ -431,10 +435,13 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
 
         true_x, true_y = [x[c[0], c[1]] for c in cores], [y[c[0], c[1]] for c in cores]
 
+        #- GC -#
+        del image_array,densities,cores,tmp_max
+        gc.collect()
         # Writing the data
         # ------------------------------------------------------------------------------------------------------------ #
         output_frame = pd.DataFrame({
-            "Time": [snap.properties['time'] for i in true_x],
+            "Time": [time for i in true_x],
             "rank": [i + 1 for i in range(len(true_x))],
             "x_val": true_x,
             "y_val": true_y,
