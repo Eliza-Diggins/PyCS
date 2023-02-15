@@ -114,7 +114,7 @@ __quantities = {
         }
     },
     "p": {
-        "unit":"N m^-2",
+        "unit": "N m^-2",
         "fancy": "Pressure",
         "families": ["gas"],
         "default_settings": {
@@ -155,6 +155,15 @@ __quantities = {
         "default_settings": {
             "cmap": plt.cm.hot,
             "log": True
+        }
+    },
+    "dmb": {
+        "unit": " ",
+        "fancy":r"\log_{10}\left(\frac{\rho_{\mathrm{gas}}}{\rho_{\mathrm{dm}}}\right)",
+        "families": ["gas","stars","dm"], # This is redundant.
+        "default_settings" : {
+            "cmap": plt.cm.RdPu_r,
+            "log": False
         }
     }
 }
@@ -452,7 +461,7 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
         try:
             output_array += pyn.plot.sph.image(snapshot[family], qty=qty, noplot=True, **kwargs, threaded=False)
             log_print("Plotted family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
-                  fdbg_string, "info")
+                      fdbg_string, "info")
         except Exception:
             log_print("Failed to plot family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
                       fdbg_string, "error")
@@ -460,6 +469,48 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
     # RETURNING
     ########################################################################################################################
     return fix_array(output_array, qty, fix_units)
+
+
+def generate_dmb_image_array(snapshot, **kwargs):
+    """
+
+    -------
+
+    """
+    # DEBUGGING
+    ########################################################################################################################
+    fdbg_string = _dbg_string + "generate_dmb_image_array: "
+    log_print("Plotting dmb for %s." % (snapshot), fdbg_string, "debug")
+
+    # KWARG MANAGEMENT
+    ########################################################################################################################
+    # - Getting defaults -#
+
+    for key, value in __pynbody_image_defaults.items():  # cycle through all of the defaults
+        if key not in kwargs:
+            kwargs[key] = value
+        else:
+            pass
+
+    # - Managing units -#
+    del kwargs["units"]
+
+    # PLOTTING
+    ########################################################################################################################
+    # - Generating SPH information -#
+    snapshot.dm["smooth"] = pyn.sph.smooth(snapshot.dm)
+    snapshot.dm["rho"] = pyn.sph.rho(snapshot.dm)
+
+    #- Getting ratios -#
+    dm_array =  pyn.plot.sph.image(snapshot.dm, qty="rho", noplot=True, **kwargs, threaded=False)
+    gas_array = pyn.plot.sph.image(snapshot.gas, qty="rho", noplot=True, **kwargs, threaded=False)
+
+    # Generating the array #
+    output_array = np.log10(((dm_array-np.amin(gas_array))*(np.amax(gas_array)-np.amin(gas_array)))/((gas_array-np.amin(gas_array))*(np.amax(dm_array)-np.amin(dm_array)))) # creating the array ratio.
+
+    # RETURNING
+    ########################################################################################################################
+    return output_array
 
 
 def make_plot(snapshot,
@@ -531,7 +582,10 @@ def make_plot(snapshot,
         generate_speed_of_sound(snapshot)
 
     # - building the array -#
-    image_array = generate_image_array(snapshot, qty, families=families, **kwargs)
+    if qty in ["dmb"]:
+        image_array = generate_dmb_image_array(snapshot, **kwargs)
+    else:
+        image_array = generate_image_array(snapshot, qty, families=families, **kwargs)
 
     # - MANAGING COLORS AND VMIN/VMAX
 

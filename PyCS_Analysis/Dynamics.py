@@ -7,7 +7,6 @@ import os
 import pathlib as pt
 import shutil
 import sys
-
 import pandas as pd
 import scipy.ndimage
 
@@ -380,6 +379,8 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
     log_print("Attempting to get centers of %s snaps on process %s." % (len(output_paths), current_process().name),
               fdbg_string, "info")
 
+
+
     if not width:
         no_width = True
     else:
@@ -452,6 +453,7 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         output_frame.to_csv(os.path.join(temp_directory, "%s.csv" % pt.Path(output_path).name))
         log_print("Finished %s on %s." % (output_path, current_process().name), fdbg_string, "debug")
 
+        tracemalloc.stop()
     log_print("Finished centers of %s snaps on process %s." % (len(output_paths), current_process().name),
                   fdbg_string, "info")
 
@@ -577,4 +579,4 @@ def get_centers(simulation: str,
 if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT")
     # Making the bridge object
-    get_centers("TestSim")
+    mp_get_centers(["/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500"],temp_directory="/home/ediggins/PyCS/tmp_file",resolution=2000,width=pyn.units.Unit("5000 kpc"),footprint=10,ncores=2)
