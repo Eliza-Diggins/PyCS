@@ -412,7 +412,7 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
 
         if no_width and not set_width:
             # We don't have a fixed width and a width hasn't been set yet.
-            width = snap.properties["boxsize"] / 2
+            width = snap.properties["boxsize"] / 4
         elif no_width:
             # There is a set width
             width = set_width
