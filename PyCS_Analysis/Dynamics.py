@@ -393,7 +393,6 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         no_width = False
         set_width = None # Indicating that we need to produce it from previous snaps.
 
-    print(width,no_width,set_width)
     # COMPUTING
     # ---------------------------------------------------------------------------------------------------------------- #
     for id, output_path in enumerate(output_paths):  # cycle through all of the output paths for this case.
@@ -420,11 +419,12 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
             # There is a set width
             pass
 
-        print(output_path,width)
         # Generating the image array
         # ------------------------------------------------------------------------------------------------------------ #
+        log_print("Image width will be %s."%width,fdbg_string,"debug")
         image_array = generate_image_array(snap, "rho", families=["dm"], width=width, resolution=resolution)
         #- Gabage collection -#
+
         del snap
         gc.collect()
 
@@ -444,11 +444,11 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         if CONFIG["system"]["system_testing_debug"]:
             fig = plt.figure()
             ax1 = fig.add_subplot(111)
-            ax1.imshow(image_array, origin="lower")
+            ax1.imshow(image_array, origin="lower",extent=[-width.in_units("kpc"),width.in_units("kpc"),
+                                                           -width.in_units("kpc"),width.in_units("kpc")])
             ax1.plot([i[1] for i in cores], [i[0] for i in cores], "ro")
-            plt.show()
-            #plt.savefig(os.path.join(CONFIG["system"]["directories"]["unit_test_dump"], "DMPS_get_center_%s_%s.png" % (
-            #pt.Path(output_path).name, datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))))
+            plt.savefig(os.path.join(CONFIG["system"]["directories"]["unit_test_dump"], "DMPS_get_center_%s_%s.png" % (
+            pt.Path(output_path).name, datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))))
 
             del ax1,fig
 
@@ -481,7 +481,8 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         #--------------------------------------------------------------------------------------------------------------#
         if no_width:
             # We have to set the width from the data
-            set_width = pyn.units.Unit("%s kpc"% int(2*np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2))))
+            log_print("The distance between the two clusters is %s, we are setting the next image width at 2.1*w = %s"%(np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2)),int(2.1*np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2)))))
+            set_width = pyn.units.Unit("%s kpc"% int(2.1*np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2))))
         else:
             pass
 
