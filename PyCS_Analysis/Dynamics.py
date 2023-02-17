@@ -393,6 +393,7 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         no_width = False
         set_width = None # Indicating that we need to produce it from previous snaps.
 
+    print(width,no_width,set_width)
     # COMPUTING
     # ---------------------------------------------------------------------------------------------------------------- #
     for id, output_path in enumerate(output_paths):  # cycle through all of the output paths for this case.
@@ -400,7 +401,6 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
 
         # Opening the simulation and proceeding with typical alignment procedures
         # ------------------------------------------------------------------------------------------------------------ #
-        print(no_width,set_width)
         snap = pyn.load(output_path)
         align_snapshot(snap)
         time = snap.properties["time"].in_units("Gyr")
@@ -412,7 +412,7 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
 
         if no_width and not set_width:
             # We don't have a fixed width and a width hasn't been set yet.
-            width = snap.properties["boxsize"] / 8
+            width = snap.properties["boxsize"] / 2
         elif no_width:
             # There is a set width
             width = set_width
@@ -420,11 +420,10 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
             # There is a set width
             pass
 
+        print(output_path,width)
         # Generating the image array
         # ------------------------------------------------------------------------------------------------------------ #
-        print("width",width)
         image_array = generate_image_array(snap, "rho", families=["dm"], width=width, resolution=resolution)
-        print("width",width)
         #- Gabage collection -#
         del snap
         gc.collect()
@@ -447,8 +446,9 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
             ax1 = fig.add_subplot(111)
             ax1.imshow(image_array, origin="lower")
             ax1.plot([i[1] for i in cores], [i[0] for i in cores], "ro")
-            plt.savefig(os.path.join(CONFIG["system"]["directories"]["unit_test_dump"], "DMPS_get_center_%s_%s.png" % (
-            pt.Path(output_path).name, datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))))
+            plt.show()
+            #plt.savefig(os.path.join(CONFIG["system"]["directories"]["unit_test_dump"], "DMPS_get_center_%s_%s.png" % (
+            #pt.Path(output_path).name, datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))))
 
             del ax1,fig
 
@@ -481,9 +481,7 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         #--------------------------------------------------------------------------------------------------------------#
         if no_width:
             # We have to set the width from the data
-            print(true_x,true_y)
             set_width = pyn.units.Unit("%s kpc"% int(2*np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2))))
-            print("st_width",set_width)
         else:
             pass
 
@@ -543,9 +541,12 @@ def get_centers(simulation: str,
         return None
 
     # - Finding the corresponding output directory and loading a list of outputs. -#
-    output_directories = [os.path.join(simlog[simulation_key]["SimulationLocation"], directory) for directory in
+    rm_output_directories = {int(directory.split("_")[1]):os.path.join(simlog[simulation_key]["SimulationLocation"], directory) for directory in
                           os.listdir(simlog[simulation_key]["SimulationLocation"]) if
-                          "output" in directory]
+                          "output" in directory}
+
+    output_directories = [rm_output_directories[key] for key in sorted(list(rm_output_directories.keys()))]
+
 
     if not len(output_directories):  # The outputs are empty
         log_print("Failed to find any output files for this simulation. Exiting.", fdbg_string, "debug")
