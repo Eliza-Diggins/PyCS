@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument("-simdir", "--simulation_directory", default=None,
                         help="The simulation directory. Only one needs to be specified")
     parser.add_argument("-r","--resolution",type=int,help="The resolution of the images that are analyzed.",default=1000)
-    parser.add_argument("-w","--width",help="The width (str) to make the search region",default="5000 kpc")
+    parser.add_argument("-w","--width",help="The width (str) to make the search region",default=None)
     parser.add_argument("-f","--footprint", type=int,help="The interpolation footprint (int)",default=10)
     parser.add_argument("-nc","--cores",    type=int,help="The number of halos to find",default=2)
     parser.add_argument("-o", "--output_type", type=str, default="FILE", help="The type of output to use for logging.")
@@ -71,7 +71,10 @@ if __name__ == '__main__':
         raise OSError("%s: Failed to find either -sim or -simdir. At least one is necessary..." % cdbg_string)
         exit()
 
-
+    if args.width:
+        width = pyn.units.Unit(args.width)
+    else:
+        width = None
     # Running
     ########################################################################################################################
-    get_centers(simulation_name,resolution=int(args.resolution),width=pyn.units.Unit(args.width),footprint=int(args.footprint),ncores=int(args.cores),nproc=args.nproc)
+    get_centers(simulation_name,resolution=int(args.resolution),width=width,footprint=int(args.footprint),ncores=int(args.cores),nproc=args.nproc)

@@ -506,7 +506,7 @@ def generate_dmb_image_array(snapshot, **kwargs):
     gas_array = pyn.plot.sph.image(snapshot.gas, qty="rho", noplot=True, **kwargs, threaded=False)
 
     # Generating the array #
-    output_array = np.log10(((dm_array-np.amin(gas_array))*(np.amax(gas_array)-np.amin(gas_array)))/((gas_array-np.amin(gas_array))*(np.amax(dm_array)-np.amin(dm_array)))) # creating the array ratio.
+    output_array = np.log10(((dm_array-np.amin(dm_array))*(np.amax(gas_array)-np.amin(gas_array)))/((gas_array-np.amin(gas_array))*(np.amax(dm_array)-np.amin(dm_array)))) # creating the array ratio.
 
     # RETURNING
     ########################################################################################################################

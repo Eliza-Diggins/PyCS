@@ -380,11 +380,18 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
               fdbg_string, "info")
 
 
-
+    # MANAGING WIDTH FINDING
+    #------------------------------------------------------------------------------------------------------------------#
+    #
+    #    If width specified -> fixed width the entire time, otherwise we pass through
+    #    If not fixed width -> we take either the last one or a default.
+    #
     if not width:
         no_width = True
+        set_width = width # This is the width we use to set the widths
     else:
         no_width = False
+        set_width = None # Indicating that we need to produce it from previous snaps.
 
     # COMPUTING
     # ---------------------------------------------------------------------------------------------------------------- #
@@ -393,18 +400,35 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
 
         # Opening the simulation and proceeding with typical alignment procedures
         # ------------------------------------------------------------------------------------------------------------ #
+        print(no_width,set_width)
         snap = pyn.load(output_path)
         align_snapshot(snap)
         time = snap.properties["time"].in_units("Gyr")
-        if no_width:
+
+        # Width management
+        #--------------------------------------------------------------------------------------------------------------#
+
+
+
+        if no_width and not set_width:
+            # We don't have a fixed width and a width hasn't been set yet.
             width = snap.properties["boxsize"] / 8
+        elif no_width:
+            # There is a set width
+            width = set_width
+        else:
+            # There is a set width
+            pass
+
         # Generating the image array
         # ------------------------------------------------------------------------------------------------------------ #
+        print("width",width)
         image_array = generate_image_array(snap, "rho", families=["dm"], width=width, resolution=resolution)
-
+        print("width",width)
         #- Gabage collection -#
         del snap
         gc.collect()
+
         # - Image manipulations - #
         image_array = np.log10(image_array)  # reduce to a logarithm for easier processing.
 
@@ -453,7 +477,16 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         output_frame.to_csv(os.path.join(temp_directory, "%s.csv" % pt.Path(output_path).name))
         log_print("Finished %s on %s." % (output_path, current_process().name), fdbg_string, "debug")
 
-        tracemalloc.stop()
+        # Computing the new widths
+        #--------------------------------------------------------------------------------------------------------------#
+        if no_width:
+            # We have to set the width from the data
+            print(true_x,true_y)
+            set_width = pyn.units.Unit("%s kpc"% int(2*np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2))))
+            print("st_width",set_width)
+        else:
+            pass
+
     log_print("Finished centers of %s snaps on process %s." % (len(output_paths), current_process().name),
                   fdbg_string, "info")
 
