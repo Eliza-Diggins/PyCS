@@ -171,7 +171,7 @@ __quantities = {
 # ---# PHYSICAL CONSTANTS #---------------------------------------------------------------------------------------------#
 boltzmann = 1.380649e-23 * pyn.units.Unit("J K^-1")  # Defining the Boltzmann constant
 critical_density = 130 * pyn.units.Unit("Msol kpc^-3")  # critical density of the universe.
-
+critical_xray =1e-35 * pyn.units.Unit("erg cm^-3 s^-1")
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Minor Functions -------------------------------------------------#
@@ -249,24 +249,20 @@ def merge_alpha_images(alpha_arrays: list, colors: list):
     cmaps = [mpl.colors.ListedColormap([i]) for i in colors]  # generates the correct colormaps
 
     # - Making the base arrays -#
-    base_arrays = [cmap(array)[:, :, :-1] for cmap, array in zip(cmaps, alpha_arrays)]  # grab the RBG values.
+    base_arrays = [cmap(array) for cmap, array in zip(cmaps, alpha_arrays)]  # grab the RBG values.
 
     # Combining images
     ####################################################################################################################
     # - multiplying by alphas -#
     # These are now the individual images correctly normalized.
     base_arrays = np.array(
-        [base_array * np.stack([alpha_array, alpha_array, alpha_array], axis=-1) for base_array, alpha_array in
+        [base_array * np.stack([alpha_array, alpha_array, alpha_array,np.ones(alpha_array.shape)], axis=-1) for base_array, alpha_array in
          zip(base_arrays, alpha_arrays)])
 
     # - Making the image -#
     image = np.sum(base_arrays, axis=0)
-
     # - renormalizing -#
-    norm_val = np.amax(image)
-    for i in range(3):
-        image[:, :, i] = (image[:, :, i] / norm_val) * 255
-
+    image = (image/2)*255
     return image.astype("uint8")
 
 
@@ -458,13 +454,13 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
 
     for family in families:
         ### Cycle through each family and generate the image array.
-        try:
+        #try:
             output_array += pyn.plot.sph.image(snapshot[family], qty=qty, noplot=True, **kwargs, threaded=False)
             log_print("Plotted family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
                       fdbg_string, "info")
-        except Exception:
-            log_print("Failed to plot family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
-                      fdbg_string, "error")
+        #except Exception:
+        #    log_print("Failed to plot family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
+        #              fdbg_string, "error")
 
     # RETURNING
     ########################################################################################################################
@@ -473,7 +469,7 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
 
 def generate_dmb_image_array(snapshot, **kwargs):
     """
-
+    TODO: Incomplete/non-functional
     -------
 
     """
@@ -640,7 +636,7 @@ def make_gas_dm_image(snapshot,
                       end_file=None,
                       vmin_dm=critical_density,
                       vmax_dm=None,
-                      vmin_gas=critical_density,
+                      vmin_gas=critical_xray,
                       vmax_gas=None,
                       colors=None,
                       time_units=pyn.units.Unit(CONFIG["units"]["default_time_unit"]),
@@ -670,9 +666,10 @@ def make_gas_dm_image(snapshot,
         kwargs["resolution"] = CONFIG["Visualization"]["Images"]["default_resolution"]
     # - fetching units -#
     if not "units" in kwargs:
-        kwargs["units"] = set_units("rho")
+        unit_array = [set_units("rho"),set_units("xray")]
     else:
-        kwargs["units"] = pyn.units.Unit(kwargs["units"])
+        unit_array = [pyn.units.Unit(kwarg) for kwarg in kwargs["units"]]
+        del kwargs["units"]
 
     if isinstance(time_units, str):
         time_units = pyn.units.Unit(time_units)
@@ -680,8 +677,9 @@ def make_gas_dm_image(snapshot,
     # Generating the plots
     ####################################################################################################################
     # building the images #
-    dark_matter_array = generate_image_array(snapshot, "rho", families=["dm"], **kwargs)
-    baryonic_array = generate_image_array(snapshot, "rho", families=["gas"], **kwargs)
+    generate_xray_emissivity(snapshot)
+    dark_matter_array = generate_image_array(snapshot, "rho", families=["dm"],units=unit_array[0], **kwargs)
+    baryonic_array = generate_image_array(snapshot, "xray", families=["gas"],units=unit_array[1], **kwargs)
 
     # - creating norms -#
     if not vmax_dm:
@@ -693,10 +691,12 @@ def make_gas_dm_image(snapshot,
         vmax_gas = np.amax(baryonic_array)
     else:
         vmax_gas = vmax_gas
+
+
     # setting vmin
     ##- Recognize that if vmin is united, then we have to change to correct units. if no, leave as float.
     try:
-        vmin_gas, vmin_dm = vmin_gas.in_units(kwargs["units"]), vmin_dm.in_units(kwargs["units"])
+        vmin_gas, vmin_dm = vmin_gas.in_units(unit_array[1]), vmin_dm.in_units(unit_array[0])
     except Exception:
         vmin_gas, vmin_dm = vmin_gas, vmin_dm  # we just set trivially.
 
@@ -746,8 +746,8 @@ def make_gas_dm_image(snapshot,
     # creating the mapables #
     bar_gas, bar_dm = plt.cm.ScalarMappable(norm=norm_gas, cmap=cmap_gas), plt.cm.ScalarMappable(norm=norm_dm,
                                                                                                  cmap=cmap_dm)
-    plt.colorbar(bar_gas, label=r"Gas Density / $%s$" % kwargs["units"].latex(), fraction=0.1, pad=0.05)
-    plt.colorbar(bar_dm, label=r"Dark Matter Density / $%s$" % kwargs["units"].latex(), fraction=0.1, pad=0.01)
+    plt.colorbar(bar_gas, label=r"X-ray Emissivity / $%s$" % unit_array[1].latex(), fraction=0.1, pad=0.05)
+    plt.colorbar(bar_dm, label=r"Dark Matter Density / $%s$" % unit_array[0].latex(), fraction=0.1, pad=0.01)
 
     # - adjusting subplots -#
     plt.subplots_adjust(left=a1, right=1 - a2, bottom=b1, top=1 - b2)

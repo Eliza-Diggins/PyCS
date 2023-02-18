@@ -481,7 +481,7 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         #--------------------------------------------------------------------------------------------------------------#
         if no_width:
             # We have to set the width from the data
-            log_print("The distance between the two clusters is %s, we are setting the next image width at 2.1*w = %s"%(np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2)),int(2.1*np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2)))))
+            log_print("The distance between the two clusters is %s, we are setting the next image width at 2.1*w = %s"%(np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2)),int(2.1*np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2)))),fdbg_string,"debug")
             set_width = pyn.units.Unit("%s kpc"% int(2.1*np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2))))
         else:
             pass
