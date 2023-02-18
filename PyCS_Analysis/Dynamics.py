@@ -422,7 +422,7 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         # Generating the image array
         # ------------------------------------------------------------------------------------------------------------ #
         log_print("Image width will be %s."%width,fdbg_string,"debug")
-        image_array = generate_image_array(snap, "rho", families=["dm"], width=width, resolution=resolution)
+        image_array = generate_image_array(snap, "rho", families=["dm"], width=width, resolution=resolution,av_z=True)
         #- Gabage collection -#
 
         del snap
