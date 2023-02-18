@@ -471,7 +471,7 @@ def generate_dmb_image_array(snapshot, **kwargs):
     """
     TODO: Incomplete/non-functional
     -------
-
+    # unimplemented.
     """
     # DEBUGGING
     ########################################################################################################################

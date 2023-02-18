@@ -440,17 +440,6 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
 
         log_print("Located %s maximal cores as %s in array coordinates." % (ncores, cores), fdbg_string, "debug")
 
-        # - Unit test dump management -#
-        if CONFIG["system"]["system_testing_debug"]:
-            fig = plt.figure()
-            ax1 = fig.add_subplot(111)
-            ax1.imshow(image_array, origin="lower",extent=[-width.in_units("kpc"),width.in_units("kpc"),
-                                                           -width.in_units("kpc"),width.in_units("kpc")])
-            ax1.plot([i[1] for i in cores], [i[0] for i in cores], "ro")
-            plt.savefig(os.path.join(CONFIG["system"]["directories"]["unit_test_dump"], "DMPS_get_center_%s_%s.png" % (
-            pt.Path(output_path).name, datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))))
-
-            del ax1,fig
 
         # Analysis
         # ------------------------------------------------------------------------------------------------------------ #
@@ -460,6 +449,16 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
 
         true_x, true_y = [x[c[0], c[1]] for c in cores], [y[c[0], c[1]] for c in cores]
 
+        if CONFIG["system"]["system_testing_debug"]:
+            fig = plt.figure()
+            ax1 = fig.add_subplot(111)
+            ax1.imshow(image_array, origin="lower",extent=[-width.in_units("kpc")/2,width.in_units("kpc")/2,
+                                                           -width.in_units("kpc")/2,width.in_units("kpc")/2])
+            ax1.scatter(true_x,true_y,marker="x",color="red")
+            plt.savefig(os.path.join(CONFIG["system"]["directories"]["unit_test_dump"], "DMPS_get_center_%s_%s.png" % (
+            pt.Path(output_path).name, datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))))
+
+            del ax1,fig
         #- GC -#
         del image_array,densities,cores,tmp_max
         gc.collect()
@@ -481,7 +480,9 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         #--------------------------------------------------------------------------------------------------------------#
         if no_width:
             # We have to set the width from the data
-            log_print("The distance between the two clusters is %s, we are setting the next image width at 2.1*w = %s"%(np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2)),int(2.1*np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2)))),fdbg_string,"debug")
+            log_print("The distance between the two clusters is %s, we are setting the next image width at 2.1*w = %s"%(np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2)),int(2.1*np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2)))),
+                      fdbg_string,"debug")
+
             set_width = pyn.units.Unit("%s kpc"% int(2.1*np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2))))
         else:
             pass
