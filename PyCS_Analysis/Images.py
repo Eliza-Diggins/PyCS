@@ -447,7 +447,7 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
     else:
         fix_units = kwargs["units"]
 
-    # PLOTTING
+    # PLOTTING #
     ########################################################################################################################
     # - Generating the empty array -#
     output_array = np.zeros((kwargs["resolution"], kwargs["resolution"]))
