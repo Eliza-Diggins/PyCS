@@ -55,6 +55,15 @@ if __name__ == '__main__':
     parser.add_argument("-tu", "--time_units", help="The time units to use in the output.")
     parser.add_argument("-r", '--resolution', help="The resolution to use", type=int)
     parser.add_argument("-f", "--families", help="The families to include.", nargs="+", default=None)
+    parser.add_argument("-c","--contours",action="store_true",help="Include contours?")
+    parser.add_argument("-c_qty","--contour_qty",type=str,default="rho",help="The preferred contour quantity.")
+    parser.add_argument("-c_lvls","--contour_levels",nargs="+",default=None,help="The levels to set the contours at.")
+    parser.add_argument("-c_nlvl","--contour_nlevels",type=int,default=10,help="The number of levels to use in the contour map. Overridden by -c_lvls.")
+    parser.add_argument("-c_log","--contour_log",action="store_true",help="Use logarithmically spaced levels?")
+    parser.add_argument("-c_proj","--contour_project",action="store_true",help='Use the projected quantity?')
+    parser.add_argument("-c_smooth","--contour_smooth",type=int,default=None,help="The smoothing kernel for the contours.")
+    parser.add_argument("-c_fam","--contour_families",nargs="+",default=None,help="The families to use in the contour map.")
+    parser.add_argument("-c_color","--contour_color",default="white",help="The color to use for the contours.")
     parser.add_argument("-i", "--integrate", help="Average through the slice", action="store_true")
     parser.add_argument("-log", "--logarithmic", action="store_true", help="Use a logarithmic plotting profile.")
     parser.add_argument("-cmap", "--colormap", default="inferno", help="The colormap to use.")
@@ -102,6 +111,24 @@ if __name__ == '__main__':
     else:
         families = None
 
+    # Contour Management
+    #------------------------------------------------------------------------------------------------------------------#
+    if args.contours:
+        # We are going to be using contours.
+        contour_kwargs = {
+            "contours":True,
+            "nlevels":args.contour_nlevels,
+            "levels":args.contour_levels,
+            "qty":args.contour_qty,
+            "log":args.contour_log,
+            "families":args.contour_families,
+            "color":args.contour_color,
+            "smoothing_kernel":args.contour_smooth,
+            "av_z":args.contour_project
+        }
+    else:
+        contour_kwargs = None # This won't even make it into the command.
+
     cmap = cm.get_cmap(args.colormap)
 
     if not (args.simulation_name or args.simulation_directory):
@@ -134,7 +161,8 @@ if __name__ == '__main__':
         "resolution": args.resolution,
         "units": args.units,
         "time_units": args.time_units,
-        "view_kwargs":view_params
+        "view_kwargs":view_params,
+        "contour_kwargs":contour_kwargs
     }
     kwargs = {key: value for key, value in kwargs.items() if value != None}
     # Running

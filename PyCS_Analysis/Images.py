@@ -8,10 +8,9 @@
 import os
 import pathlib as pt
 import sys
-
-import numpy as np
-
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
+import numpy as np
+import scipy.ndimage
 from PyCS_Core.Configuration import read_config, _configuration_path
 import pynbody as pyn
 from PyCS_Analysis.plot_utils import get_color_binary_colormap
@@ -20,6 +19,7 @@ from PyCS_Analysis.Analysis_Utils import get_families, align_snapshot, make_pseu
     generate_xray_emissivity, SnapView, generate_speed_of_sound
 from PyCS_Core.PyCS_Errors import *
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from PyCS_System.SimulationMangement import SimulationLog
 from utils import split
 from datetime import datetime
@@ -67,6 +67,15 @@ __pynbody_image_defaults = {
     "width": CONFIG["Visualization"]["Images"]["default_width"]
 }  # Kwargs to pass into pyn.plot.sph.image
 
+__contour_defaults = {
+    "contours": CONFIG["Visualization"]["Images"]["Contours"]["default_contours"],
+    "qty": CONFIG["Visualization"]["Images"]["Contours"]["default_contour_qty"],
+    "log": CONFIG["Visualization"]["Images"]["Contours"]["default_contour_log"],
+    "nlevels":CONFIG["Visualization"]["Images"]["Contours"]["default_n_levels"],
+    "color":CONFIG["Visualization"]["Images"]["Contours"]["default_color"],
+    "legend":CONFIG["Visualization"]["Images"]["Contours"]["default_legend"],
+    "av_z":CONFIG["Visualization"]["Images"]["Contours"]["projected"]
+}
 # ---# QUANTITY SPECIFIC DEFAULTS #-------------------------------------------------------------------------------------#
 #   These dictionaries carry kwargs specific to each quantity that gets passed into either the profiles or
 #   the pyn.plot.sph.image() function.
@@ -156,22 +165,14 @@ __quantities = {
             "cmap": plt.cm.hot,
             "log": True
         }
-    },
-    "dmb": {
-        "unit": " ",
-        "fancy":r"\log_{10}\left(\frac{\rho_{\mathrm{gas}}}{\rho_{\mathrm{dm}}}\right)",
-        "families": ["gas","stars","dm"], # This is redundant.
-        "default_settings" : {
-            "cmap": plt.cm.RdPu_r,
-            "log": False
-        }
     }
 }
 
 # ---# PHYSICAL CONSTANTS #---------------------------------------------------------------------------------------------#
 boltzmann = 1.380649e-23 * pyn.units.Unit("J K^-1")  # Defining the Boltzmann constant
 critical_density = 130 * pyn.units.Unit("Msol kpc^-3")  # critical density of the universe.
-critical_xray =1e-35 * pyn.units.Unit("erg cm^-3 s^-1")
+critical_xray = 1e-35 * pyn.units.Unit("erg cm^-3 s^-1")
+
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ----------------------------------------------------- Minor Functions -------------------------------------------------#
@@ -256,13 +257,14 @@ def merge_alpha_images(alpha_arrays: list, colors: list):
     # - multiplying by alphas -#
     # These are now the individual images correctly normalized.
     base_arrays = np.array(
-        [base_array * np.stack([alpha_array, alpha_array, alpha_array,np.ones(alpha_array.shape)], axis=-1) for base_array, alpha_array in
+        [base_array * np.stack([alpha_array, alpha_array, alpha_array, np.ones(alpha_array.shape)], axis=-1) for
+         base_array, alpha_array in
          zip(base_arrays, alpha_arrays)])
 
     # - Making the image -#
     image = np.sum(base_arrays, axis=0)
     # - renormalizing -#
-    image = (image/2)*255
+    image = (image / 2) * 255
     return image.astype("uint8")
 
 
@@ -300,6 +302,7 @@ def mp_make_plot(arg):
     else:
         view_kwargs = None
 
+
     # MAIN
     # ------------------------------------------------------------------------------------------------------------------#
     for simulation in args[0]:  # cycle through all of the output folders.
@@ -320,6 +323,7 @@ def mp_make_plot(arg):
         except MemoryError:
             log_print("Ran out of memory", fdbg_string, "critical")
             exit()
+
         make_plot(snap, args[3], end_file=os.path.join(args[1], "Image_%s.png" % (simulation.replace("output_", ""))),
                   **kwargs)
 
@@ -454,59 +458,17 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
 
     for family in families:
         ### Cycle through each family and generate the image array.
-        #try:
-            output_array += pyn.plot.sph.image(snapshot[family], qty=qty, noplot=True, **kwargs, threaded=False)
-            log_print("Plotted family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
-                      fdbg_string, "info")
-        #except Exception:
-        #    log_print("Failed to plot family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
-        #              fdbg_string, "error")
+        # try:
+        output_array += pyn.plot.sph.image(snapshot[family], qty=qty, noplot=True, **kwargs, threaded=False)
+        log_print("Plotted family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
+                  fdbg_string, "info")
+    # except Exception:
+    #    log_print("Failed to plot family %s for snapshot %s and quantity %s." % (family.name, snapshot, qty),
+    #              fdbg_string, "error")
 
     # RETURNING
     ########################################################################################################################
     return fix_array(output_array, qty, fix_units)
-
-
-def generate_dmb_image_array(snapshot, **kwargs):
-    """
-    TODO: Incomplete/non-functional
-    -------
-    # unimplemented.
-    """
-    # DEBUGGING
-    ########################################################################################################################
-    fdbg_string = _dbg_string + "generate_dmb_image_array: "
-    log_print("Plotting dmb for %s." % (snapshot), fdbg_string, "debug")
-
-    # KWARG MANAGEMENT
-    ########################################################################################################################
-    # - Getting defaults -#
-
-    for key, value in __pynbody_image_defaults.items():  # cycle through all of the defaults
-        if key not in kwargs:
-            kwargs[key] = value
-        else:
-            pass
-
-    # - Managing units -#
-    del kwargs["units"]
-
-    # PLOTTING
-    ########################################################################################################################
-    # - Generating SPH information -#
-    snapshot.dm["smooth"] = pyn.sph.smooth(snapshot.dm)
-    snapshot.dm["rho"] = pyn.sph.rho(snapshot.dm)
-
-    #- Getting ratios -#
-    dm_array =  pyn.plot.sph.image(snapshot.dm, qty="rho", noplot=True, **kwargs, threaded=False)
-    gas_array = pyn.plot.sph.image(snapshot.gas, qty="rho", noplot=True, **kwargs, threaded=False)
-
-    # Generating the array #
-    output_array = np.log10(((dm_array-np.amin(dm_array))*(np.amax(gas_array)-np.amin(gas_array)))/((gas_array-np.amin(gas_array))*(np.amax(dm_array)-np.amin(dm_array)))) # creating the array ratio.
-
-    # RETURNING
-    ########################################################################################################################
-    return output_array
 
 
 def make_plot(snapshot,
@@ -522,33 +484,86 @@ def make_plot(snapshot,
               length_units=CONFIG["units"]["default_length_unit"],
               **kwargs) -> None:
     """
-    Plots the snapshot, qty and families. Saves to an intended location.
+    ``make_plot`` generates a plot of ``qty`` with the associated parameters.
     Parameters
     ----------
-    save: True to save, False to pass
-    end_file: The endfile location.
-    snapshot: The snapshot to pass in.
-    qty: The qty to plot.
-    families: The families to use.
-    kwargs: Additional plotting kwargs.
+    snapshot: The snapshot to plot.
+    qty: The quantity to plot.
+    families: The families to include.
+    save: True to save, False to show.
+    end_file: The save location to use.
+    time_units: The time units to display.
+    title: The title of the plot.
+    log: True to use log, False to use normal.
+    vmin: color minimum
+    vmax: color maximum.
+    length_units: The length units to use for the x/y axis.
+    kwargs: additional kwargs to pass.
 
     Returns: None
     -------
 
     """
-    ### Intro Debugging ###
+    # Debugging
+    #------------------------------------------------------------------------------------------------------------------#
     fdbg_string = _dbg_string + "make:plot: "
     log_print("Making plot of %s for %s." % (qty, snapshot), fdbg_string, "debug")
 
-    ### Managing defaults ###
-    # Managing kwargs #
+    # ---------------------------------------------------------------------------------------------------------------- #
+    #                                   Managing kwargs passed to the function                                         #
+    #    * This includes default kwargs for both the plotting procedure and for contours.                              #
+    #                                                                                                                  #
+    # ---------------------------------------------------------------------------------------------------------------- #
+
+    # Setting default kwargs for the MAIN plotting procedure.
     for key, value in __pynbody_image_defaults.items():  # cycle through all of the defaults
         if key not in kwargs:
             kwargs[key] = value
         else:
             pass
 
-    ### Managing the units ###
+    # Managing the contour kwargs -> We fetch these from the kwargs and then provide defaults.
+    contour_kwargs = (kwargs["contour_kwargs"].copy() if "contour_kwargs" in kwargs else {})
+
+    ### clearing the kwargs ###
+    if "contour_kwargs" in kwargs:
+        del kwargs["contour_kwargs"]
+
+    # Setting default kwargs for the Contour plotting procedure.
+    for key, value in __contour_defaults.items():
+        if key not in contour_kwargs:
+            contour_kwargs[key] = value
+        elif not contour_kwargs[key]:
+            contour_kwargs[key] = value
+        else:
+            pass
+
+    ### Adding additional necessary contour kwargs ###
+    contour_kwargs["width"] = kwargs["width"]
+    contour_kwargs["resolution"] = kwargs["resolution"]
+
+    # - Grabbing contour information -#
+    if "contours" in contour_kwargs:
+        # Configuring the contour plot info
+        contours = contour_kwargs["contours"] # are we generating contours or not?
+        contour_qty = contour_kwargs["qty"] # The quantity to use for the contours.
+
+        del contour_kwargs["contours"],contour_kwargs["qty"]
+
+        # creating contour plot kwargs #
+        contour_plot_kwargs = {}
+        for key in ["vmin","vmax","log","levels","nlevels","color","legend"]: # these are all of the plot quantities.
+            if key in contour_kwargs:
+                contour_plot_kwargs[key] = contour_kwargs[key]
+                del contour_kwargs[key]
+            else:
+                contour_plot_kwargs[key] = None
+    else:
+        contours = False
+        contour_qty = None
+
+    # UNIT MANAGEMENT PROCESSES #
+    #---------------------------#
     if not "units" in kwargs:
         kwargs["units"] = set_units(qty)
     else:
@@ -556,8 +571,13 @@ def make_plot(snapshot,
 
     if isinstance(time_units, str):
         time_units = pyn.units.Unit(time_units)
-    # PLOTTING #
-    ########################################################################################################################
+
+
+    # ---------------------------------------------------------------------------------------------------------------- #
+    #                                   Managing the Actual Plotting Routines                                          #
+    #                                                                                                                  #
+    #                                                                                                                  #
+    # ---------------------------------------------------------------------------------------------------------------- #
     ### Making the figure ###
     figure = plt.figure(figsize=tuple(CONFIG["Visualization"]["default_figure_size"]))
     axes = figure.add_subplot(111)
@@ -566,43 +586,122 @@ def make_plot(snapshot,
     numerical_width = float(pyn.units.Unit(kwargs["width"]).in_units(length_units))
     extent = [-numerical_width / 2, numerical_width / 2, -numerical_width / 2, numerical_width / 2]
 
-    # - Getting the data -#
+    # FETCHING DATA
+    #------------------------------------------------------------------------------------------------------------------#
+
     ##- deriving arrays -##
-    if qty == "entropy":
+    qty_list = ([qty] if not contours else [qty, contour_qty]) # The quantities that we are going to need.
+    if "entropy" in qty_list:
         make_pseudo_entropy(snapshot)
-    elif qty == "mach":
+    if "mach" in qty_list:
         make_mach_number(snapshot)
-    elif qty == "xray":
+    if "xray" in qty_list:
         generate_xray_emissivity(snapshot)
-    elif qty == "sound_speed":
+    if "sound_speed" in qty_list:
         generate_speed_of_sound(snapshot)
 
-    # - building the array -#
-    if qty in ["dmb"]:
-        image_array = generate_dmb_image_array(snapshot, **kwargs)
+    # Building the base image array #
+    #-------------------------------#
+    image_array = generate_image_array(snapshot, qty, families=families, **kwargs)
+
+    # Building the contour image array #
+    #----------------------------------#
+    if contours:
+        # Managing smoothing if necessary #
+        if "smoothing_kernel" in contour_kwargs:
+            smoothing_kernel = contour_kwargs["smoothing_kernel"]
+            del contour_kwargs["smoothing_kernel"]
+        else:
+            smoothing_kernel = None
+        # - We need to grab the correct contour images -#
+        contour_array = generate_image_array(snapshot,contour_qty,**contour_kwargs)
+
+        if smoothing_kernel:
+            contour_array = scipy.ndimage.gaussian_filter(contour_array,smoothing_kernel)
     else:
-        image_array = generate_image_array(snapshot, qty, families=families, **kwargs)
+        contour_array = None
 
-    # - MANAGING COLORS AND VMIN/VMAX
+    # Aesthetic Management
+    #------------------------------------------------------------------------------------------------------------------#
 
+    # - Color management and vmin/vmax - #
+    #------------------------------------#
+    # Setting vmin/vmax as necessary.
     if not vmin:
         vmin = np.amin(image_array)
     if not vmax:
         vmax = np.amax(image_array)
 
+    # managing log
     if log:
         vmin = (vmin if vmin > 0 else np.amin(image_array[np.where(image_array > 0)]))
         color_norm = mpl.colors.LogNorm(vmin=vmin, vmax=vmax, clip=True)
     else:
         color_norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
 
-    ### making the plot ###
+    # - PLOTTING - #
+    #--------------#
     image = axes.imshow(image_array, origin="lower", cmap=kwargs["cmap"], extent=extent, norm=color_norm)
 
-    ### Managing the colorbar ###
+
+    # Contour plotting procedure and management #
+    #-------------------------------------------#
+    print(contour_kwargs)
+    if contours:
+        print(contour_kwargs,contour_plot_kwargs)
+        # Setting image limits #
+        if not contour_plot_kwargs["vmin"]:
+            contour_plot_kwargs["vmin"] = np.amin(contour_array)
+
+        if not contour_plot_kwargs["vmax"]:
+            contour_plot_kwargs["vmax"] = np.amax(contour_array)
+
+        # Generating levels
+        #--------------------------------------------------------------------------------------------------------------#
+        if not contour_plot_kwargs["levels"]:
+            contour_plot_kwargs["levels"] = (np.linspace(contour_plot_kwargs["vmin"],
+                                                         contour_plot_kwargs["vmax"],
+                                                         contour_plot_kwargs["nlevels"]) if not contour_plot_kwargs["log"] else
+                                             np.logspace(np.log10(np.amax([contour_plot_kwargs["vmin"],1])),
+                                                         np.log10(contour_plot_kwargs["vmax"]),
+                                                         contour_plot_kwargs["nlevels"]))
+
+
+        # Plotting the contours
+        #--------------------------------------------------------------------------------------------------------------#
+        print(contour_kwargs,contour_plot_kwargs)
+        axes.contour(np.linspace(extent[0], extent[1], contour_array.shape[0]),
+                     np.linspace(extent[0], extent[1], contour_array.shape[1]),
+                     contour_array,
+                     levels=contour_plot_kwargs["levels"],
+                     colors=contour_plot_kwargs["color"])
+
+        # Creating the contour legend
+        #--------------------------------------------------------------------------------------------------------------#
+        if contour_plot_kwargs["legend"]:
+            # making the label
+            legend_label = fancy_qty(contour_qty)
+
+            if contour_kwargs["families"]:
+                legend_label += " (%s)"%contour_kwargs["families"]
+
+            if contour_kwargs["av_z"]:
+                legend_label += " - projected"
+
+            legend_elements = [
+                Line2D([], [], color=contour_plot_kwargs["color"], label=legend_label)]
+
+            axes.legend(handles=legend_elements,loc="upper right")
+
+
+    # Colorbar Management
+    #------------------------------------------------------------------------------------------------------------------#
     plt.colorbar(image, label=r"$\mathrm{%s} \;\left[\mathrm{%s}\right]$" % (fancy_qty(qty), kwargs["units"].latex()))
-    ### Managing text ###
-    # - TITLES -#
+
+
+    # Text Management #
+    #------------------------------------------------------------------------------------------------------------------#
+    # - TITLES - #
     plt.title(r"$t = \mathrm{%s\;%s},\;\;\mathrm{Quantity:\;%s}\;[\mathrm{%s}]$" % (
         np.round(snapshot.properties["time"].in_units(time_units), decimals=2),
         time_units.latex(),
@@ -619,7 +718,6 @@ def make_plot(snapshot,
     #########################################################################################################################
     if save:
         plt.savefig(end_file)
-
         del image_array
         axes.cla()
         del axes
@@ -666,7 +764,7 @@ def make_gas_dm_image(snapshot,
         kwargs["resolution"] = CONFIG["Visualization"]["Images"]["default_resolution"]
     # - fetching units -#
     if not "units" in kwargs:
-        unit_array = [set_units("rho"),set_units("xray")]
+        unit_array = [set_units("rho"), set_units("xray")]
     else:
         unit_array = [pyn.units.Unit(kwarg) for kwarg in kwargs["units"]]
         del kwargs["units"]
@@ -678,8 +776,8 @@ def make_gas_dm_image(snapshot,
     ####################################################################################################################
     # building the images #
     generate_xray_emissivity(snapshot)
-    dark_matter_array = generate_image_array(snapshot, "rho", families=["dm"],units=unit_array[0], **kwargs)
-    baryonic_array = generate_image_array(snapshot, "xray", families=["gas"],units=unit_array[1], **kwargs)
+    dark_matter_array = generate_image_array(snapshot, "rho", families=["dm"], units=unit_array[0], **kwargs)
+    baryonic_array = generate_image_array(snapshot, "xray", families=["gas"], units=unit_array[1], **kwargs)
 
     # - creating norms -#
     if not vmax_dm:
@@ -691,7 +789,6 @@ def make_gas_dm_image(snapshot,
         vmax_gas = np.amax(baryonic_array)
     else:
         vmax_gas = vmax_gas
-
 
     # setting vmin
     ##- Recognize that if vmin is united, then we have to change to correct units. if no, leave as float.
@@ -959,8 +1056,14 @@ def generate_dm_baryon_image_sequence(simulation_directory, multiprocess=True, n
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT", level=10)
+    data = pyn.load('/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500')
+    align_snapshot(data)
 
-    generate_image_sequence("/home/ediggins/PyCS/RAMSES_simulations/TestSim", "rho", multiprocess=False, nproc=1,
-                            families="gas", view_kwargs={"center": [0, 0, 0],
-                                                         "angles": [0, 70]}, av_z=True, log=True)
+    make_plot(data, "rho",families="gas",log=True, save=False, contour_kwargs={"contours":True,
+                                                        "log":True,
+                                                        "nlevels":10,
+                                                        "qty":"rho",
+                                                        "families":"dm",
+                                                        "av_z":True,
+                                                        "smoothing_kernel":10})
     plt.show()

@@ -379,19 +379,18 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
     log_print("Attempting to get centers of %s snaps on process %s." % (len(output_paths), current_process().name),
               fdbg_string, "info")
 
-
     # MANAGING WIDTH FINDING
-    #------------------------------------------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------------------------------------------#
     #
     #    If width specified -> fixed width the entire time, otherwise we pass through
     #    If not fixed width -> we take either the last one or a default.
     #
     if not width:
         no_width = True
-        set_width = width # This is the width we use to set the widths
+        set_width = width  # This is the width we use to set the widths
     else:
         no_width = False
-        set_width = None # Indicating that we need to produce it from previous snaps.
+        set_width = None  # Indicating that we need to produce it from previous snaps.
 
     # COMPUTING
     # ---------------------------------------------------------------------------------------------------------------- #
@@ -405,9 +404,7 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         time = snap.properties["time"].in_units("Gyr")
 
         # Width management
-        #--------------------------------------------------------------------------------------------------------------#
-
-
+        # --------------------------------------------------------------------------------------------------------------#
 
         if no_width and not set_width:
             # We don't have a fixed width and a width hasn't been set yet.
@@ -421,16 +418,16 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
 
         # Generating the image array
         # ------------------------------------------------------------------------------------------------------------ #
-        log_print("Image width will be %s."%width,fdbg_string,"debug")
-        image_array = generate_image_array(snap, "rho", families=["dm"], width=width, resolution=resolution,av_z=True)
-        #- Gabage collection -#
+        log_print("Image width will be %s." % width, fdbg_string, "debug")
+        image_array = generate_image_array(snap, "rho", families=["dm"], width=width, resolution=resolution)
 
+        # - Garbage collection -#
         del snap
         gc.collect()
 
         # - Image manipulations - #
         image_array = np.log10(image_array)  # reduce to a logarithm for easier processing.
-
+        image_array = scipy.ndimage.gaussian_filter(image_array, sigma=25)
         # grabbing maxima
         tmp_max = (image_array == scipy.ndimage.maximum_filter(image_array, footprint, mode="constant", cval=0))
 
@@ -439,7 +436,6 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         cores = [np.argwhere(image_array == d)[0] for d in densities]
 
         log_print("Located %s maximal cores as %s in array coordinates." % (ncores, cores), fdbg_string, "debug")
-
 
         # Analysis
         # ------------------------------------------------------------------------------------------------------------ #
@@ -452,15 +448,15 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         if CONFIG["system"]["system_testing_debug"]:
             fig = plt.figure()
             ax1 = fig.add_subplot(111)
-            ax1.imshow(image_array, origin="lower",extent=[-width.in_units("kpc")/2,width.in_units("kpc")/2,
-                                                           -width.in_units("kpc")/2,width.in_units("kpc")/2])
-            ax1.scatter(true_x,true_y,marker="x",color="red")
+            ax1.imshow(image_array, origin="lower", extent=[-width.in_units("kpc") / 2, width.in_units("kpc") / 2,
+                                                            -width.in_units("kpc") / 2, width.in_units("kpc") / 2])
+            ax1.scatter(true_x, true_y, marker="x", color="red")
             plt.savefig(os.path.join(CONFIG["system"]["directories"]["unit_test_dump"], "DMPS_get_center_%s_%s.png" % (
-            pt.Path(output_path).name, datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))))
+                pt.Path(output_path).name, datetime.now().strftime('%m-%d-%Y_%H-%M-%S'))))
 
-            del ax1,fig
-        #- GC -#
-        del image_array,densities,cores,tmp_max
+            del ax1, fig
+        # - GC -#
+        del image_array, densities, cores, tmp_max
         gc.collect()
         # Writing the data
         # ------------------------------------------------------------------------------------------------------------ #
@@ -477,18 +473,22 @@ def mp_get_centers(output_paths: list, temp_directory: str, resolution, width, f
         log_print("Finished %s on %s." % (output_path, current_process().name), fdbg_string, "debug")
 
         # Computing the new widths
-        #--------------------------------------------------------------------------------------------------------------#
+        # --------------------------------------------------------------------------------------------------------------#
         if no_width:
             # We have to set the width from the data
-            log_print("The distance between the two clusters is %s, we are setting the next image width at 2.1*w = %s"%(np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2)),int(2.1*np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2)))),
-                      fdbg_string,"debug")
+            log_print(
+                "The distance between the two clusters is %s, we are setting the next image width at 2.1*w = %s" % (
+                np.sqrt(np.sum(np.array(true_x) ** 2 + np.array(true_y) ** 2)),
+                int(2.1 * np.sqrt(np.sum(np.array(true_x) ** 2 + np.array(true_y) ** 2)))),
+                fdbg_string, "debug")
 
-            set_width = pyn.units.Unit("%s kpc"% int(2.5*np.sqrt(np.sum(np.array(true_x)**2+np.array(true_y)**2))))
+            set_width = pyn.units.Unit(
+                "%s kpc" % int(2.5 * np.sqrt(np.sum(np.array(true_x) ** 2 + np.array(true_y) ** 2))))
         else:
             pass
 
     log_print("Finished centers of %s snaps on process %s." % (len(output_paths), current_process().name),
-                  fdbg_string, "info")
+              fdbg_string, "info")
 
 
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -543,12 +543,13 @@ def get_centers(simulation: str,
         return None
 
     # - Finding the corresponding output directory and loading a list of outputs. -#
-    rm_output_directories = {int(directory.split("_")[1]):os.path.join(simlog[simulation_key]["SimulationLocation"], directory) for directory in
-                          os.listdir(simlog[simulation_key]["SimulationLocation"]) if
-                          "output" in directory}
+    rm_output_directories = {
+        int(directory.split("_")[1]): os.path.join(simlog[simulation_key]["SimulationLocation"], directory) for
+        directory in
+        os.listdir(simlog[simulation_key]["SimulationLocation"]) if
+        "output" in directory}
 
     output_directories = [rm_output_directories[key] for key in sorted(list(rm_output_directories.keys()))]
-
 
     if not len(output_directories):  # The outputs are empty
         log_print("Failed to find any output files for this simulation. Exiting.", fdbg_string, "debug")
@@ -605,7 +606,8 @@ def get_centers(simulation: str,
 
     if not os.path.exists(os.path.join(CONFIG["system"]["directories"]["datasets_directory"], simulation)):
         pt.Path(os.path.join(CONFIG["system"]["directories"]["datasets_directory"], simulation)).mkdir(parents=True)
-    full_frame.to_csv(os.path.join(CONFIG["system"]["directories"]["datasets_directory"], simulation, "centers.csv"),index=False)
+    full_frame.to_csv(os.path.join(CONFIG["system"]["directories"]["datasets_directory"], simulation, "centers.csv"),
+                      index=False)
     shutil.rmtree(tmp_output_directory)
 
 
@@ -615,4 +617,6 @@ def get_centers(simulation: str,
 if __name__ == '__main__':
     set_log(_filename, output_type="STDOUT")
     # Making the bridge object
-    mp_get_centers(["/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500"],temp_directory="/home/ediggins/PyCS/tmp_file",resolution=2000,width=pyn.units.Unit("5000 kpc"),footprint=10,ncores=2)
+    mp_get_centers(["/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500"],
+                   temp_directory="/home/ediggins/PyCS/tmp_file", resolution=2000, width=pyn.units.Unit("5000 kpc"),
+                   footprint=10, ncores=2)
