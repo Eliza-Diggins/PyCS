@@ -42,7 +42,7 @@ if not CONFIG["system"]["logging"]["warnings"]:
 #- Grabbing the correct executables -#
 ramses_exec = CONFIG["system"]["executables"]["RAMSES_exec"]
 aqual_exec = CONFIG["system"]["executables"]["AQUAL_exec"]
-qumond_exec = CONFIG["system"]["executables"]["AQUAL_exec"]
+qumond_exec = CONFIG["system"]["executables"]["QUMOND_exec"]
 
 #- Grabbing the data storage directories -#
 ramses_output_file = CONFIG["system"]["directories"]["RAMSES_simulations_directory"]

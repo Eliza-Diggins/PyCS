@@ -436,6 +436,8 @@ def generate_image_array(snapshot, qty, families=None, **kwargs):
     for key, value in __pynbody_image_defaults.items():  # cycle through all of the defaults
         if key not in kwargs:
             kwargs[key] = value
+        elif not kwargs[key]:
+            kwargs[key] = value
         else:
             pass
 
@@ -518,6 +520,8 @@ def make_plot(snapshot,
     # Setting default kwargs for the MAIN plotting procedure.
     for key, value in __pynbody_image_defaults.items():  # cycle through all of the defaults
         if key not in kwargs:
+            kwargs[key] = value
+        elif not kwargs[key]:
             kwargs[key] = value
         else:
             pass

@@ -448,6 +448,8 @@ if __name__ == '__main__':
                     print("[%s]: %s" % (Fore.GREEN + item + Style.RESET_ALL, value))
 
                 input("\nPress [%s] to return..." % (Fore.RED + "enter" + Style.RESET_ALL))
+
+                __global_command = None
         else:
             # There was no command
             pass
