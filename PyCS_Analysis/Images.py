@@ -8,6 +8,7 @@
 import os
 import pathlib as pt
 import sys
+
 sys.path.append(str(pt.Path(os.path.realpath(__file__)).parents[1]))
 import numpy as np
 import scipy.ndimage
@@ -71,10 +72,10 @@ __contour_defaults = {
     "contours": CONFIG["Visualization"]["Images"]["Contours"]["default_contours"],
     "qty": CONFIG["Visualization"]["Images"]["Contours"]["default_contour_qty"],
     "log": CONFIG["Visualization"]["Images"]["Contours"]["default_contour_log"],
-    "nlevels":CONFIG["Visualization"]["Images"]["Contours"]["default_n_levels"],
-    "color":CONFIG["Visualization"]["Images"]["Contours"]["default_color"],
-    "legend":CONFIG["Visualization"]["Images"]["Contours"]["default_legend"],
-    "av_z":CONFIG["Visualization"]["Images"]["Contours"]["projected"]
+    "nlevels": CONFIG["Visualization"]["Images"]["Contours"]["default_n_levels"],
+    "color": CONFIG["Visualization"]["Images"]["Contours"]["default_color"],
+    "legend": CONFIG["Visualization"]["Images"]["Contours"]["default_legend"],
+    "av_z": CONFIG["Visualization"]["Images"]["Contours"]["projected"]
 }
 # ---# QUANTITY SPECIFIC DEFAULTS #-------------------------------------------------------------------------------------#
 #   These dictionaries carry kwargs specific to each quantity that gets passed into either the profiles or
@@ -302,7 +303,6 @@ def mp_make_plot(arg):
     else:
         view_kwargs = None
 
-
     # MAIN
     # ------------------------------------------------------------------------------------------------------------------#
     for simulation in args[0]:  # cycle through all of the output folders.
@@ -505,7 +505,7 @@ def make_plot(snapshot,
 
     """
     # Debugging
-    #------------------------------------------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------------------------------------------#
     fdbg_string = _dbg_string + "make:plot: "
     log_print("Making plot of %s for %s." % (qty, snapshot), fdbg_string, "debug")
 
@@ -545,14 +545,15 @@ def make_plot(snapshot,
     # - Grabbing contour information -#
     if "contours" in contour_kwargs:
         # Configuring the contour plot info
-        contours = contour_kwargs["contours"] # are we generating contours or not?
-        contour_qty = contour_kwargs["qty"] # The quantity to use for the contours.
+        contours = contour_kwargs["contours"]  # are we generating contours or not?
+        contour_qty = contour_kwargs["qty"]  # The quantity to use for the contours.
 
-        del contour_kwargs["contours"],contour_kwargs["qty"]
+        del contour_kwargs["contours"], contour_kwargs["qty"]
 
         # creating contour plot kwargs #
         contour_plot_kwargs = {}
-        for key in ["vmin","vmax","log","levels","nlevels","color","legend"]: # these are all of the plot quantities.
+        for key in ["vmin", "vmax", "log", "levels", "nlevels", "color",
+                    "legend"]:  # these are all of the plot quantities.
             if key in contour_kwargs:
                 contour_plot_kwargs[key] = contour_kwargs[key]
                 del contour_kwargs[key]
@@ -563,7 +564,7 @@ def make_plot(snapshot,
         contour_qty = None
 
     # UNIT MANAGEMENT PROCESSES #
-    #---------------------------#
+    # ---------------------------#
     if not "units" in kwargs:
         kwargs["units"] = set_units(qty)
     else:
@@ -571,7 +572,6 @@ def make_plot(snapshot,
 
     if isinstance(time_units, str):
         time_units = pyn.units.Unit(time_units)
-
 
     # ---------------------------------------------------------------------------------------------------------------- #
     #                                   Managing the Actual Plotting Routines                                          #
@@ -587,10 +587,10 @@ def make_plot(snapshot,
     extent = [-numerical_width / 2, numerical_width / 2, -numerical_width / 2, numerical_width / 2]
 
     # FETCHING DATA
-    #------------------------------------------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------------------------------------------#
 
     ##- deriving arrays -##
-    qty_list = ([qty] if not contours else [qty, contour_qty]) # The quantities that we are going to need.
+    qty_list = ([qty] if not contours else [qty, contour_qty])  # The quantities that we are going to need.
     if "entropy" in qty_list:
         make_pseudo_entropy(snapshot)
     if "mach" in qty_list:
@@ -601,11 +601,11 @@ def make_plot(snapshot,
         generate_speed_of_sound(snapshot)
 
     # Building the base image array #
-    #-------------------------------#
+    # -------------------------------#
     image_array = generate_image_array(snapshot, qty, families=families, **kwargs)
 
     # Building the contour image array #
-    #----------------------------------#
+    # ----------------------------------#
     if contours:
         # Managing smoothing if necessary #
         if "smoothing_kernel" in contour_kwargs:
@@ -614,18 +614,18 @@ def make_plot(snapshot,
         else:
             smoothing_kernel = None
         # - We need to grab the correct contour images -#
-        contour_array = generate_image_array(snapshot,contour_qty,**contour_kwargs)
+        contour_array = generate_image_array(snapshot, contour_qty, **contour_kwargs)
 
         if smoothing_kernel:
-            contour_array = scipy.ndimage.gaussian_filter(contour_array,smoothing_kernel)
+            contour_array = scipy.ndimage.gaussian_filter(contour_array, smoothing_kernel)
     else:
         contour_array = None
 
     # Aesthetic Management
-    #------------------------------------------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------------------------------------------#
 
     # - Color management and vmin/vmax - #
-    #------------------------------------#
+    # ------------------------------------#
     # Setting vmin/vmax as necessary.
     if not vmin:
         vmin = np.amin(image_array)
@@ -640,15 +640,12 @@ def make_plot(snapshot,
         color_norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
 
     # - PLOTTING - #
-    #--------------#
+    # --------------#
     image = axes.imshow(image_array, origin="lower", cmap=kwargs["cmap"], extent=extent, norm=color_norm)
 
-
     # Contour plotting procedure and management #
-    #-------------------------------------------#
-    print(contour_kwargs)
+    # -------------------------------------------#
     if contours:
-        print(contour_kwargs,contour_plot_kwargs)
         # Setting image limits #
         if not contour_plot_kwargs["vmin"]:
             contour_plot_kwargs["vmin"] = np.amin(contour_array)
@@ -657,19 +654,18 @@ def make_plot(snapshot,
             contour_plot_kwargs["vmax"] = np.amax(contour_array)
 
         # Generating levels
-        #--------------------------------------------------------------------------------------------------------------#
+        # --------------------------------------------------------------------------------------------------------------#
         if not contour_plot_kwargs["levels"]:
             contour_plot_kwargs["levels"] = (np.linspace(contour_plot_kwargs["vmin"],
                                                          contour_plot_kwargs["vmax"],
-                                                         contour_plot_kwargs["nlevels"]) if not contour_plot_kwargs["log"] else
-                                             np.logspace(np.log10(np.amax([contour_plot_kwargs["vmin"],1])),
+                                                         contour_plot_kwargs["nlevels"]) if not contour_plot_kwargs[
+                "log"] else
+                                             np.logspace(np.log10(np.amax([contour_plot_kwargs["vmin"], 1])),
                                                          np.log10(contour_plot_kwargs["vmax"]),
                                                          contour_plot_kwargs["nlevels"]))
 
-
         # Plotting the contours
-        #--------------------------------------------------------------------------------------------------------------#
-        print(contour_kwargs,contour_plot_kwargs)
+        # --------------------------------------------------------------------------------------------------------------#
         axes.contour(np.linspace(extent[0], extent[1], contour_array.shape[0]),
                      np.linspace(extent[0], extent[1], contour_array.shape[1]),
                      contour_array,
@@ -677,13 +673,13 @@ def make_plot(snapshot,
                      colors=contour_plot_kwargs["color"])
 
         # Creating the contour legend
-        #--------------------------------------------------------------------------------------------------------------#
+        # --------------------------------------------------------------------------------------------------------------#
         if contour_plot_kwargs["legend"]:
             # making the label
             legend_label = fancy_qty(contour_qty)
 
             if contour_kwargs["families"]:
-                legend_label += " (%s)"%contour_kwargs["families"]
+                legend_label += " (%s)" % contour_kwargs["families"]
 
             if contour_kwargs["av_z"]:
                 legend_label += " - projected"
@@ -691,16 +687,14 @@ def make_plot(snapshot,
             legend_elements = [
                 Line2D([], [], color=contour_plot_kwargs["color"], label=legend_label)]
 
-            axes.legend(handles=legend_elements,loc="upper right")
-
+            axes.legend(handles=legend_elements, loc="upper right")
 
     # Colorbar Management
-    #------------------------------------------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------------------------------------------#
     plt.colorbar(image, label=r"$\mathrm{%s} \;\left[\mathrm{%s}\right]$" % (fancy_qty(qty), kwargs["units"].latex()))
 
-
     # Text Management #
-    #------------------------------------------------------------------------------------------------------------------#
+    # ------------------------------------------------------------------------------------------------------------------#
     # - TITLES - #
     plt.title(r"$t = \mathrm{%s\;%s},\;\;\mathrm{Quantity:\;%s}\;[\mathrm{%s}]$" % (
         np.round(snapshot.properties["time"].in_units(time_units), decimals=2),
@@ -1059,11 +1053,11 @@ if __name__ == '__main__':
     data = pyn.load('/home/ediggins/PyCS/RAMSES_simulations/TestSim/output_00500')
     align_snapshot(data)
 
-    make_plot(data, "rho",families="gas",log=True, save=False, contour_kwargs={"contours":True,
-                                                        "log":True,
-                                                        "nlevels":10,
-                                                        "qty":"rho",
-                                                        "families":"dm",
-                                                        "av_z":True,
-                                                        "smoothing_kernel":10})
+    make_plot(data, "rho", families="gas", log=True, save=False, contour_kwargs={"contours": True,
+                                                                                 "log": True,
+                                                                                 "nlevels": 10,
+                                                                                 "qty": "rho",
+                                                                                 "families": "dm",
+                                                                                 "av_z": True,
+                                                                                 "smoothing_kernel": 10})
     plt.show()
