@@ -47,11 +47,13 @@ if __name__ == '__main__':
     # Argument Parsing
     ########################################################################################################################
     parser = argparse.ArgumentParser()  # setting up the command line argument parser
+    #- Required Arguments -#
     parser.add_argument("qty", help="The quantity to plot")
     parser.add_argument("ns", help="Then number of the snapshot to plot")
     parser.add_argument("-sim", "--simulation_name", default=None, help="The simulation name to use")
     parser.add_argument("-simdir", "--simulation_directory", default=None,
                         help="The simulation directory. Only one needs to be specified")
+    #- Figure Options -#
     parser.add_argument("-s", "--save", action="store_true", help="Use to save the image.")
     parser.add_argument("-v", "--vbounds", nargs="+", help="The colorbounds if desired.", default=None)
     parser.add_argument("-t", "--title", help="The title to add to the plot.")
@@ -62,11 +64,23 @@ if __name__ == '__main__':
     parser.add_argument("-log", "--logarithmic", action="store_true", help="Use a logarithmic plotting profile.")
     parser.add_argument("-cmap", "--colormap", default="inferno", help="The colormap to use.")
     parser.add_argument("-f", "--families", nargs="+", help="The families to include")
+    #- Contour Options -#
+    parser.add_argument("-c","--contours",action="store_true",help="Include contours?")
+    parser.add_argument("-c_qty","--contour_qty",type=str,default="rho",help="The preferred contour quantity.")
+    parser.add_argument("-c_lvls","--contour_levels",nargs="+",default=None,help="The levels to set the contours at.")
+    parser.add_argument("-c_nlvl","--contour_nlevels",type=int,default=10,help="The number of levels to use in the contour map. Overridden by -c_lvls.")
+    parser.add_argument("-c_log","--contour_log",action="store_true",help="Use logarithmically spaced levels?")
+    parser.add_argument("-c_proj","--contour_project",action="store_true",help='Use the projected quantity?')
+    parser.add_argument("-c_smooth","--contour_smooth",type=int,default=None,help="The smoothing kernel for the contours.")
+    parser.add_argument("-c_fam","--contour_families",nargs="+",default=None,help="The families to use in the contour map.")
+    parser.add_argument("-c_color","--contour_color",default="white",help="The color to use for the contours.")
+    #- Logging Options -#
     parser.add_argument("-o", "--output_type", type=str, default="FILE", help="The type of output to use for logging.")
     parser.add_argument("-l", "--logging_level", type=int, default=10, help="The level of logging to use.")
-    parser.add_argument("-w", "--width", help="The width of the region.", default=None)
+    #- Camera / View Options -#
     parser.add_argument("-orig","--origin",help="The location of the origin. Array floats in kpc.",nargs="+",default=None)
     parser.add_argument("-cam","--camera",help="The location of the camera (az,elev).",nargs="+",default=None)
+    parser.add_argument("-w", "--width", help="The width of the region.", default=None)
     args = parser.parse_args()
 
     # Setup
@@ -85,6 +99,23 @@ if __name__ == '__main__':
     else:
         families = None
 
+    # Contour Management
+    #------------------------------------------------------------------------------------------------------------------#
+    if args.contours:
+        # We are going to be using contours.
+        contour_kwargs = {
+            "contours":True,
+            "nlevels":args.contour_nlevels,
+            "levels":args.contour_levels,
+            "qty":args.contour_qty,
+            "log":args.contour_log,
+            "families":args.contour_families,
+            "color":args.contour_color,
+            "smoothing_kernel":args.contour_smooth,
+            "av_z":args.contour_project
+        }
+    else:
+        contour_kwargs = None # This won't even make it into the command.
     # Camera Management
     #------------------------------------------------------------------------------------------------------------------#
     if not args.origin:
@@ -161,7 +192,8 @@ if __name__ == '__main__':
         "cmap": cmap,
         "resolution": args.resolution,
         "units": args.units,
-        "time_units": args.time_units
+        "time_units": args.time_units,
+        "contour_kwargs": contour_kwargs
     }
     kwargs = {key: value for key, value in kwargs.items() if value != None}
     # PLOTTING

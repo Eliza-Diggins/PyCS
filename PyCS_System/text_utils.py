@@ -375,7 +375,8 @@ def get_options(option_dict, title):
         "sub_dict": {},
         "keys": [],
         "command": None,
-        "reset": True
+        "reset": True,
+        "reset_location":True,
     }
     while not CHECK_DONE:  # we are still cycling'
 
@@ -395,8 +396,11 @@ def get_options(option_dict, title):
         if __GSV["reset"]:
             __GSV["sub_dict"] = getFromDict(settings, __GSV["location"])
             __GSV["keys"] = list(__GSV["sub_dict"].keys())
-            __GSV["selected_key"] = list(__GSV["sub_dict"].keys())[0]
+            if __GSV["reset_location"]:
+                __GSV["selected_key"] = list(__GSV["sub_dict"].keys())[0]
+
             __GSV["reset"] = False
+            __GSV["reset_location"] = True
 
         print_option_dict(__GSV["sub_dict"], __GSV["selected_key"], header=header)
 
@@ -421,6 +425,8 @@ def get_options(option_dict, title):
                     __GSV["command"] = None
                 else:
                     __GSV["command"] = None
+
+                __GSV["reset_location"] = False
             elif __GSV["command"] == "default":
                 ### We are editing the selection.
                 old_tuple = list(__GSV["sub_dict"][__GSV["selected_key"]])
@@ -1250,5 +1256,9 @@ def option_menu(options, desc=None, title=None):
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 if __name__ == '__main__':
     set_log(_filename, output_type="FILE")
-    print(multi_file_select([CONFIG["system"]["directories"]["RAMSES_simulations_directory"],
-                       CONFIG["system"]["directories"]["initial_conditions_directory"]]))
+    get_options({"Option1":{
+        "O1":("","",""),
+        "O2":("","","")
+    },
+    "Option2":("","","")
+    },"a title")
