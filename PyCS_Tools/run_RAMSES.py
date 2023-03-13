@@ -87,7 +87,7 @@ def issue_memory_waring(nml_config):
     ##- converting to parsecs -##
 
     box_size = box_size.in_units("pc")
-
+f
     # grabbing the ic location and length
     ic_loc = str(nml_config["CORE"]["ic_file"][0])[1:-1]
 
